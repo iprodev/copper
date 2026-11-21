@@ -8,20 +8,17 @@ const oldSwitcherValues = {
     filenamePattern: ['classic', 'pretty', 'basic', 'nerdy']
 } as const;
 
-const oldCheckboxes = [
-    'audioMode',
-    'fullTikTokAudio',
-    'muteAudio',
-    'reduceTransparency',
-    'disableAnimations',
-    'disableMetadata',
-    'plausible_ignore',
-    'ytDub',
-    'tiktokH265'
-] as const;
-
 type LegacySwitchers = keyof typeof oldSwitcherValues;
-type LegacyCheckboxes = typeof oldCheckboxes[number];
+type LegacyCheckboxes =
+    | 'audioMode'
+    | 'fullTikTokAudio'
+    | 'muteAudio'
+    | 'reduceTransparency'
+    | 'disableAnimations'
+    | 'disableMetadata'
+    | 'plausible_ignore'
+    | 'ytDub'
+    | 'tiktokH265';
 
 const _get = (name: LegacyCheckboxes | LegacySwitchers) => {
     const value = localStorage.getItem(name);

@@ -42,7 +42,8 @@ export class OPFSStorage extends AbstractStorage {
     }
 
     static async #computeIsAvailable() {
-        let tempFile = uuid(), ok = true;
+        const tempFile = uuid();
+        let ok = true;
 
         if (typeof navigator === 'undefined')
             return false;
