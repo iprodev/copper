@@ -187,11 +187,10 @@ export const validateEnvs = async (env) => {
     return env;
 }
 
-const reloadEnvs = async (contents) => {
+export const parseEnvFile = (contents) => {
     const newEnvs = {};
-    const resolvedContents = await contents;
 
-    for (let line of resolvedContents.split('\n')) {
+    for (let line of contents.split('\n')) {
         line = line.trim();
         if (line === '' || line.startsWith('#')) {
             continue;
@@ -209,6 +208,13 @@ const reloadEnvs = async (contents) => {
             newEnvs[key] = value || '';
         }
     }
+
+    return newEnvs;
+}
+
+const reloadEnvs = async (contents) => {
+    const resolvedContents = await contents;
+    const newEnvs = parseEnvFile(resolvedContents);
 
     const candidate = {
         ...canonicalEnv,
