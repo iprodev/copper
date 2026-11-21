@@ -10,7 +10,7 @@ const TOP_N_SHUFFLE = 8;
 // Modified variation of https://stackoverflow.com/a/12646864
 const shuffleArray = (array) => {
     for (let i = array.length - 1; i > 0; i--) {
-        const j = randomBytes(4).readUint32LE() % array.length;
+        const j = randomBytes(4).readUint32LE() % (i + 1);
         [array[i], array[j]] = [array[j], array[i]];
     }
 

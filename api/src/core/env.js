@@ -53,7 +53,7 @@ export const loadEnvs = (env = process.env) => {
     for (const key of httpProxyVariables) {
         const value = env[key] ?? canonicalEnv[key];
         if (value !== undefined) {
-            process.env[key] = env[key];
+            process.env[key] = value;
         } else {
             delete process.env[key];
         }
@@ -101,7 +101,7 @@ export const loadEnvs = (env = process.env) => {
         turnstileSitekey: env.TURNSTILE_SITEKEY,
         turnstileSecret: env.TURNSTILE_SECRET,
         jwtSecret: env.JWT_SECRET,
-        jwtLifetime: env.JWT_EXPIRY || 120,
+        jwtLifetime: (env.JWT_EXPIRY && parseInt(env.JWT_EXPIRY)) || 120,
 
         sessionEnabled: env.TURNSTILE_SITEKEY
                             && env.TURNSTILE_SECRET
@@ -193,14 +193,17 @@ const reloadEnvs = async (contents) => {
 
     for (let line of resolvedContents.split('\n')) {
         line = line.trim();
-        if (line === '') {
+        if (line === '' || line.startsWith('#')) {
             continue;
         }
 
         let [ key, value ] = line.split(/=(.+)?/);
+        key = key?.trim();
+        value = value?.trim();
+
         if (key) {
-            if (value.match(/^['"]/) && value.match(/['"]$/)) {
-                value = JSON.parse(value);
+            if (value && value.length >= 2 && /^(['"]).*\1$/.test(value)) {
+                value = value[0] === '"' ? JSON.parse(value) : value.slice(1, -1);
             }
 
             newEnvs[key] = value || '';
@@ -265,7 +268,7 @@ const setupWatcherFromFile = (path) => {
 
 const setupWatcherFromFetch = (url) => {
     const load = () => wrapReload(fetch(url).then(r => r.text()));
-    setInterval(load, currentEnv.envRemoteReloadInterval);
+    setInterval(load, currentEnv.envRemoteReloadInterval * 1000);
     load();
 }
 

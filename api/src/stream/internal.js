@@ -35,6 +35,11 @@ async function* readChunks(streamInfo, size) {
 
         chunksSinceTransplant++;
 
+        if (chunk.statusCode < 200 || chunk.statusCode > 299) {
+            chunk.body.dump().catch(() => {});
+            throw new Error(`unexpected status code ${chunk.statusCode}`);
+        }
+
         const expected = min(CHUNK_SIZE, size - read);
         const received = BigInt(chunk.headers['content-length']);
 
