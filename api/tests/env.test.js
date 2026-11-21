@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-// config.js must be loaded before env.js, same as in src/cobalt.js
+// config.js must be loaded before env.js, same as in src/fetchr.js
 import "../src/config.js";
 import { loadEnvs, parseEnvFile } from "../src/core/env.js";
 

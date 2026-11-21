@@ -32,7 +32,7 @@ const collect = () => {
 };
 
 test("audio converts to m4a through a pipe", async (t) => {
-    const dir = mkdtempSync(join(tmpdir(), "cobalt-test-"));
+    const dir = mkdtempSync(join(tmpdir(), "fetchr-test-"));
     t.after(() => rmSync(dir, { recursive: true, force: true }));
 
     const source = join(dir, "source.m4a");

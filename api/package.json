@@ -1,32 +1,32 @@
 {
-    "name": "@imput/cobalt-api",
+    "name": "@fetchr/api",
     "description": "save what you love",
-    "version": "11.7.1",
-    "author": "imput",
-    "exports": "./src/cobalt.js",
+    "version": "1.0.0",
+    "author": "iProDev",
+    "exports": "./src/fetchr.js",
     "type": "module",
     "engines": {
         "node": ">=22"
     },
     "scripts": {
-        "start": "node src/cobalt",
+        "start": "node src/fetchr",
         "test": "node src/util/test",
         "test:unit": "node --import ./tests/setup.js --test \"tests/**/*.test.js\"",
         "token:jwt": "node src/util/generate-jwt-secret"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/imputnet/cobalt.git"
+        "url": "git+https://github.com/iprodev/fetchr.git"
     },
     "license": "AGPL-3.0",
     "bugs": {
-        "url": "https://github.com/imputnet/cobalt/issues"
+        "url": "https://github.com/iprodev/fetchr/issues"
     },
-    "homepage": "https://github.com/imputnet/cobalt#readme",
+    "homepage": "https://github.com/iprodev/fetchr#readme",
     "dependencies": {
         "@datastructures-js/priority-queue": "^6.4.0",
+        "@fetchr/version-info": "workspace:^",
         "@imput/psl": "^2.0.4",
-        "@imput/version-info": "workspace:^",
         "content-disposition-header": "0.6.0",
         "cors": "^2.8.6",
         "dotenv": "^17.4.2",
