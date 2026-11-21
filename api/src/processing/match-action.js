@@ -100,6 +100,7 @@ export default function({
             responseType = "picker";
             switch (host) {
                 case "instagram":
+                case "threads":
                 case "twitter":
                 case "snapchat":
                 case "bsky":
@@ -185,6 +186,7 @@ export default function({
 
                 case "facebook":
                 case "instagram":
+                case "threads":
                 case "tumblr":
                 case "pinterest":
                 case "streamable":

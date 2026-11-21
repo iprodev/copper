@@ -149,6 +149,13 @@ export const services = {
             "s/:id"
         ],
     },
+    threads: {
+        patterns: [
+            "@:user/post/:id",
+            "@:user/post/:id/media",
+            "t/:id",
+        ],
+    },
     tiktok: {
         patterns: [
             ":user/video/:postId",

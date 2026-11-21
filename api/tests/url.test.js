@@ -39,6 +39,17 @@ test("alternative domains map to the main service", () => {
     assert.equal(host("https://v.redd.it/abc123").host, "reddit");
 });
 
+test("threads links", () => {
+    const expected = { user: "zuck", id: "DSVRshjkbtK" };
+
+    assert.equal(host("https://www.threads.com/@zuck/post/DSVRshjkbtK").host, "threads");
+    assert.deepEqual({ ...host("https://www.threads.com/@zuck/post/DSVRshjkbtK?xmt=abc").patternMatch }, expected);
+    assert.deepEqual({ ...host("https://www.threads.net/@zuck/post/DSVRshjkbtK").patternMatch }, expected);
+    assert.deepEqual({ ...host("https://www.threads.com/@zuck/post/DSVRshjkbtK/media").patternMatch }, expected);
+    assert.deepEqual({ ...host("https://www.threads.com/t/DSVRshjkbtK").patternMatch }, { id: "DSVRshjkbtK" });
+    assert.equal(host("https://www.threads.com/@zuck").error, "link.unsupported");
+});
+
 test("unknown and fake hosts are rejected", () => {
     for (const url of [
         "https://example.com/watch?v=dQw4w9WgXcQ",

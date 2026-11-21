@@ -31,6 +31,7 @@ if the desired service isn't supported yet, feel free to create an appropriate i
 | snapchat          | ✅            | ✅         | ✅         | ➖         | ➖              |
 | soundcloud        | ➖            | ✅         | ➖         | ✅         | ✅              |
 | streamable        | ✅            | ✅         | ✅         | ➖         | ➖              |
+| threads           | ✅            | ✅         | ✅         | ➖         | ➖              |
 | tiktok            | ✅            | ✅         | ✅         | ❌         | ❌              |
 | tumblr            | ✅            | ✅         | ✅         | ➖         | ➖              |
 | twitch clips      | ✅            | ✅         | ✅         | ✅         | ✅              |
@@ -52,9 +53,10 @@ if the desired service isn't supported yet, feel free to create an appropriate i
 | facebook   | supports public accessible videos content only.                                                                      |
 | pinterest  | supports photos, gifs, videos and stories.                                                                           |
 | reddit     | supports gifs and videos.                                                                                            |
-| snapchat   | supports spotlights and stories. lets you pick what to save from stories.                                            |
+| snapchat   | supports spotlights, stories and profiles. lets you pick what to save from stories.                                 |
 | rutube     | supports yappy & private links.                                                                                      |
 | soundcloud | supports private links.                                                                                              |
+| threads    | supports videos and photos. lets you pick what to save from multi-media posts.                                     |
 | tiktok     | supports videos with or without watermark, images from slideshow without watermark, and full (original) audios.      |
 | twitter/x  | lets you pick what to save from multi-media posts. may not be 100% reliable due to current management.               |
 | vimeo      | audio downloads are only available for dash.                                                                         |
