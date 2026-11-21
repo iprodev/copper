@@ -7,10 +7,11 @@ const getVideo = async ({ id, quality }) => {
             "X-Requested-With": "XMLHttpRequest", // required to get the JSON response
         }
     })
-    .then(r => r.json())
+    // newgrounds may answer with a browser check page (403) instead of json
+    .then(r => r.ok ? r.json() : undefined)
     .catch(() => {});
 
-    if (!json) return { error: "fetch.empty" };
+    if (!json) return { error: "fetch.fail" };
 
     const videoSources = json.sources;
     const videoQualities = Object.keys(videoSources);
@@ -55,15 +56,19 @@ const getMusic = async ({ id }) => {
             "User-Agent": genericUserAgent,
         }
     })
-    .then(r => r.text())
+    .then(r => r.ok ? r.text() : undefined)
     .catch(() => {});
 
     if (!html) return { error: "fetch.fail" };
 
-    const params = JSON.parse(
-        `{${html.split(',"params":{')[1]?.split(',"images":')[0]}}`
-    );
-    if (!params) return { error: "fetch.empty" };
+    let params;
+    try {
+        params = JSON.parse(
+            `{${html.split(',"params":{')[1]?.split(',"images":')[0]}}`
+        );
+    } catch {
+        return { error: "fetch.empty" };
+    }
 
     if (!params.name || !params.artist || !params.filename || !params.icon) {
         return { error: "fetch.empty" };
