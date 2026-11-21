@@ -1,13 +1,16 @@
 import UrlPattern from "url-pattern";
 
 export const audioIgnore = new Set(["vk", "ok", "loom"]);
-export const hlsExceptions = new Set(["dailymotion", "vimeo", "rutube", "bsky", "youtube", "loom"]);
+export const hlsExceptions = new Set(["dailymotion", "vimeo", "rutube", "bsky", "youtube", "loom", "pornhub", "xvideos", "beeg"]);
 
 // services whose hls files are signed with query params
 // that must be carried over to every relative uri
 export const hlsSignedQuery = new Set(["loom"]);
 
 export const services = {
+    beeg: {
+        patterns: [":id"],
+    },
     bilibili: {
         patterns: [
             "video/:comId",
@@ -84,6 +87,13 @@ export const services = {
             "portal/view/:id",
             "audio/listen/:audioId",
         ]
+    },
+    pornhub: {
+        patterns: [
+            "view_video.php?viewkey=:id",
+            "embed/:id",
+        ],
+        subdomains: "*",
     },
     reddit: {
         patterns: [
@@ -217,6 +227,15 @@ export const services = {
         ],
         subdomains: ["m"],
         altDomains: ["vkvideo.ru", "vk.ru"],
+    },
+    xvideos: {
+        patterns: [
+            "video.:id/:slug",
+            "video.:id",
+            "video:id/:slug",
+            "video:id",
+        ],
+        subdomains: "*",
     },
     youtube: {
         patterns: [

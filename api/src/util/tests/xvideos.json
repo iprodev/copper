@@ -1,0 +1,62 @@
+[
+    {
+        "name": "video (hls)",
+        "url": "https://www.xvideos.com/video.olotibp2e3e/coroa_sexagenaria_08",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "video, 360p",
+        "url": "https://www.xvideos.com/video.olotibp2e3e/coroa_sexagenaria_08",
+        "params": {
+            "videoQuality": "360"
+        },
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "video (audio only)",
+        "url": "https://www.xvideos.com/video.olotibp2e3e/coroa_sexagenaria_08",
+        "params": {
+            "downloadMode": "audio"
+        },
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "video (muted)",
+        "url": "https://www.xvideos.com/video.olotibp2e3e/coroa_sexagenaria_08",
+        "params": {
+            "downloadMode": "mute"
+        },
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "country subdomain",
+        "url": "https://fr.xvideos.com/video.olotibp2e3e/coroa_sexagenaria_08",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "inexistent video",
+        "url": "https://www.xvideos.com/video.zzzzzzzzzzz/_",
+        "params": {},
+        "expected": {
+            "code": 400,
+            "status": "error"
+        }
+    }
+]

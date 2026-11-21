@@ -50,6 +50,23 @@ test("threads links", () => {
     assert.equal(host("https://www.threads.com/@zuck").error, "link.unsupported");
 });
 
+test("pornhub, xvideos and beeg links", () => {
+    assert.deepEqual(
+        { ...host("https://de.pornhub.com/view_video.php?viewkey=ph60e0a30a74ab7&t=12").patternMatch },
+        { id: "ph60e0a30a74ab7" }
+    );
+    assert.deepEqual({ ...host("https://www.pornhub.com/embed/ph60e0a30a74ab7").patternMatch }, { id: "ph60e0a30a74ab7" });
+
+    assert.deepEqual(
+        { ...host("https://www.xvideos.com/video.olotibp2e3e/some_title").patternMatch },
+        { id: "olotibp2e3e", slug: "some_title" }
+    );
+    assert.equal(host("https://www.xvideos.com/video12345678/some_title").patternMatch.id, "12345678");
+
+    assert.deepEqual({ ...host("https://beeg.com/-0786924192839399").patternMatch }, { id: "-0786924192839399" });
+    assert.equal(host("https://beeg.com/tag/something").error, "link.unsupported");
+});
+
 test("unknown and fake hosts are rejected", () => {
     for (const url of [
         "https://example.com/watch?v=dQw4w9WgXcQ",

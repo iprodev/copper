@@ -17,6 +17,7 @@ if the desired service isn't supported yet, feel free to create an appropriate i
 
 | service           | video + audio | only audio | only video | metadata | rich file names |
 | :--------         | :-----------: | :--------: | :--------: | :------: | :-------------: |
+| beeg              | ✅            | ✅         | ✅         | ✅         | ✅              |
 | bilibili          | ✅            | ✅         | ✅         | ➖         | ➖              |
 | bluesky           | ✅            | ✅         | ✅         | ➖         | ➖              |
 | dailymotion       | ✅            | ✅         | ✅         | ✅         | ✅              |
@@ -26,6 +27,7 @@ if the desired service isn't supported yet, feel free to create an appropriate i
 | newgrounds        | ✅            | ✅         | ✅         | ✅         | ✅              |
 | ok.ru             | ✅            | ❌         | ✅         | ✅         | ✅              |
 | pinterest         | ✅            | ✅         | ✅         | ➖         | ➖              |
+| pornhub           | ✅            | ✅         | ✅         | ✅         | ✅              |
 | reddit            | ✅            | ✅         | ✅         | ❌         | ❌              |
 | rutube            | ✅            | ✅         | ✅         | ✅         | ✅              |
 | snapchat          | ✅            | ✅         | ✅         | ➖         | ➖              |
@@ -38,6 +40,7 @@ if the desired service isn't supported yet, feel free to create an appropriate i
 | twitter/x         | ✅            | ✅         | ✅         | ➖         | ➖              |
 | vimeo             | ✅            | ✅         | ✅         | ✅         | ✅              |
 | vk videos & clips | ✅            | ❌         | ✅         | ✅         | ✅              |
+| xvideos           | ✅            | ✅         | ✅         | ✅         | ✅              |
 | youtube           | ✅            | ✅         | ✅         | ✅         | ✅              |
 
 | emoji   | meaning                 |
@@ -52,6 +55,8 @@ if the desired service isn't supported yet, feel free to create an appropriate i
 | instagram  | supports reels, photos, and videos. lets you pick what to save from multi-media posts.                               |
 | facebook   | supports public accessible videos content only.                                                                      |
 | pinterest  | supports photos, gifs, videos and stories.                                                                           |
+| pornhub    | may be unavailable in regions with age verification laws, depending on where the instance is hosted.               |
+| beeg       | may be unavailable in regions with age verification laws, depending on where the instance is hosted.               |
 | reddit     | supports gifs and videos.                                                                                            |
 | snapchat   | supports spotlights, stories and profiles. lets you pick what to save from stories.                                 |
 | rutube     | supports yappy & private links.                                                                                      |

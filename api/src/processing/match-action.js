@@ -181,6 +181,7 @@ export default function({
 
                 case "ok":
                 case "newgrounds":
+                case "xvideos":
                     params = { type: "proxy" };
                     break;
 

@@ -30,6 +30,9 @@ import facebook from "./services/facebook.js";
 import bluesky from "./services/bluesky.js";
 import newgrounds from "./services/newgrounds.js";
 import threads from "./services/threads.js";
+import pornhub from "./services/pornhub.js";
+import xvideos from "./services/xvideos.js";
+import beeg from "./services/beeg.js";
 
 let freebind;
 
@@ -257,6 +260,15 @@ export default async function({ host, patternMatch, params, authType }) {
                     ...patternMatch,
                     alwaysProxy: params.alwaysProxy,
                     dispatcher
+                });
+                break;
+
+            case "pornhub":
+            case "xvideos":
+            case "beeg":
+                r = await ({ pornhub, xvideos, beeg })[host]({
+                    id: patternMatch.id,
+                    quality: params.videoQuality,
                 });
                 break;
 

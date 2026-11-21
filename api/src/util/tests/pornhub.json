@@ -1,0 +1,29 @@
+[
+    {
+        "name": "video",
+        "url": "https://www.pornhub.com/view_video.php?viewkey=ph60e0a30a74ab7",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "embed link",
+        "url": "https://www.pornhub.com/embed/ph60e0a30a74ab7",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "inexistent video",
+        "url": "https://www.pornhub.com/view_video.php?viewkey=zzzzzzzzzzzzz",
+        "params": {},
+        "expected": {
+            "code": 400,
+            "status": "error"
+        }
+    }
+]

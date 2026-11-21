@@ -1,4 +1,7 @@
 export const testers = {
+    "beeg": pattern =>
+        /^-?\d{1,20}$/.test(pattern.id ?? ""),
+
     "bilibili": pattern =>
         (pattern.comId?.length <= 12 && pattern.partId?.length <= 3) ||
         (pattern.comId?.length <= 12 && !pattern.partId) ||
@@ -35,6 +38,9 @@ export const testers = {
     "pinterest": pattern =>
         pattern.id?.length <= 128 ||
         pattern.shortLink?.length <= 32,
+
+    "pornhub": pattern =>
+        /^[a-z0-9]{1,32}$/i.test(pattern.id ?? ""),
 
     "reddit": pattern =>
         pattern.id?.length <= 16 && !pattern.sub && !pattern.user ||
@@ -83,6 +89,9 @@ export const testers = {
     "vk": pattern =>
         (pattern.ownerId?.length <= 10 && pattern.videoId?.length <= 10) ||
         (pattern.ownerId?.length <= 10 && pattern.videoId?.length <= 10 && pattern.videoId?.accessKey <= 18),
+
+    "xvideos": pattern =>
+        /^[a-z0-9]{1,24}$/i.test(pattern.id ?? ""),
 
     "youtube": pattern =>
         pattern.id?.length <= 11,

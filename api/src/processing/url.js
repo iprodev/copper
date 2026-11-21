@@ -158,6 +158,11 @@ function cleanURL(url) {
                 limitQuery('post_id');
             }
             break;
+        case "pornhub":
+            if (url.searchParams.get('viewkey')) {
+                limitQuery('viewkey');
+            }
+            break;
     }
 
     if (stripQuery) {
