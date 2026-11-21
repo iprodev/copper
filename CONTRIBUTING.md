@@ -53,3 +53,10 @@ if you find a mistake or bug in your code before it's merged or reviewed, instea
     - afterward, you must interactively rebase your branch with `git rebase -i current --autosquash`.
       this will open up an editor, but you don't need to do anything else except save the file and exit.
 - once you do either of these things, you will need to do a **force push** to your branch with `git push --force-with-lease`.
+
+## testing
+before opening a pull request, make sure that checks pass locally:
+- api unit tests: `pnpm run --prefix api test:unit` (no network access needed)
+- web lint & type check: `pnpm run --prefix web lint` and `pnpm run --prefix web check`
+
+if you're fixing a bug in the api, please add a unit test for it in `api/tests/`.
