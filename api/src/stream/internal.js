@@ -7,6 +7,7 @@ const CHUNK_SIZE = BigInt(8e6); // 8 MB
 const min = (a, b) => a < b ? a : b;
 
 const serviceNeedsChunks = new Set(["youtube", "vk"]);
+const hlsSkippedHeaders = new Set(["content-length", "content-range", "accept-ranges", "content-encoding"]);
 
 async function* readChunks(streamInfo, size) {
     let read = 0n, chunksSinceTransplant = 0;
@@ -122,18 +123,25 @@ async function handleGenericStream(streamInfo, res) {
             maxRedirections: 16
         });
 
-        res.status(fileResponse.statusCode);
         fileResponse.body.on('error', () => {});
 
-        const isHls = isHlsResponse(fileResponse, streamInfo);
+        const isOk = fileResponse.statusCode >= 200 && fileResponse.statusCode <= 299;
+        const isHls = isOk && isHlsResponse(fileResponse, streamInfo);
+
+        // a rewritten playlist is always sent in full and has a different
+        // length than the original, so size and range headers (e.g. from a
+        // 206 response to "range: bytes=0-") must not be passed through.
+        // otherwise ffmpeg reads a truncated playlist without #EXT-X-ENDLIST
+        // and treats the video as a live stream.
+        res.status(isHls ? 200 : fileResponse.statusCode);
 
         for (const [ name, value ] of Object.entries(fileResponse.headers)) {
-            if (!isHls || name.toLowerCase() !== 'content-length') {
+            if (!isHls || !hlsSkippedHeaders.has(name.toLowerCase())) {
                 res.setHeader(name, value);
             }
         }
 
-        if (fileResponse.statusCode < 200 || fileResponse.statusCode > 299) {
+        if (!isOk) {
             return cleanup();
         }
 

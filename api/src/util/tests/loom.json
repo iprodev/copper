@@ -1,11 +1,11 @@
 [
     {
-        "name": "1080p video",
+        "name": "1080p video (hls only)",
         "url": "https://www.loom.com/share/d165fd054a294d8a8587807bcc50c885",
         "params": {},
         "expected": {
             "code": 200,
-            "status": "redirect"
+            "status": "tunnel"
         }
     },
     {
@@ -31,7 +31,7 @@
         }
     },
     {
-        "name": "video with no transcodedUrl",
+        "name": "video with mp4 available",
         "url": "https://www.loom.com/share/aa3d8b08bee74d05af5b42989e9f33e9",
         "params": {},
         "expected": {
@@ -54,7 +54,7 @@
         "params": {},
         "expected": {
             "code": 200,
-            "status": "redirect"
+            "status": "tunnel"
         }
     }
 ]

@@ -1,5 +1,6 @@
 import HLS from "hls-parser";
 import { createInternalStream } from "./manage.js";
+import { hlsSignedQuery } from "../processing/service-config.js";
 import { request } from "undici";
 
 function getURL(url) {
@@ -10,17 +11,27 @@ function getURL(url) {
     }
 }
 
+function resolveURI(uri, streamInfo) {
+    if (getURL(uri)) {
+        return new URL(uri);
+    }
+
+    const parent = new URL(streamInfo.url);
+    const url = new URL(uri, parent);
+
+    if (hlsSignedQuery.has(streamInfo.service) && !url.search) {
+        url.search = parent.search;
+    }
+
+    return url;
+}
+
 function transformObject(streamInfo, hlsObject) {
     if (hlsObject === undefined) {
         return (object) => transformObject(streamInfo, object);
     }
 
-    let fullUrl;
-    if (getURL(hlsObject.uri)) {
-        fullUrl = new URL(hlsObject.uri);
-    } else {
-        fullUrl = new URL(hlsObject.uri, streamInfo.url);
-    }
+    const fullUrl = resolveURI(hlsObject.uri, streamInfo);
 
     if (fullUrl.hostname !== '127.0.0.1') {
         hlsObject.uri = createInternalStream(fullUrl.toString(), streamInfo);
@@ -54,10 +65,14 @@ function transformMediaPlaylist(streamInfo, hlsPlaylist) {
     return hlsPlaylist;
 }
 
-const HLS_MIME_TYPES = ["application/vnd.apple.mpegurl", "audio/mpegurl", "application/x-mpegURL"];
+const HLS_MIME_TYPES = ["application/vnd.apple.mpegurl", "audio/mpegurl", "application/x-mpegurl"];
 
 export function isHlsResponse(req, streamInfo) {
-    return HLS_MIME_TYPES.includes(req.headers['content-type'])
+    // ignore parameters such as "; charset=utf-8" and letter case
+    const mimeType = String(req.headers['content-type'] ?? '')
+                        .split(';')[0].trim().toLowerCase();
+
+    return HLS_MIME_TYPES.includes(mimeType)
         // bluesky's cdn responds with wrong content-type for the hls playlist,
         // so we enforce it here until they fix it
         || (streamInfo.service === 'bsky' && streamInfo.url.endsWith('.m3u8'));
@@ -73,6 +88,9 @@ export async function handleHlsPlaylist(streamInfo, req, res) {
 
     hlsPlaylist = HLS.stringify(hlsPlaylist);
 
+    // some cdns (e.g. bluesky's) send a wrong content-type, which makes newer
+    // ffmpeg versions refuse to read the playlist, so we always set the right one
+    res.setHeader('content-type', 'application/vnd.apple.mpegurl');
     res.send(hlsPlaylist);
 }
 
@@ -121,13 +139,7 @@ export async function probeInternalHLSTunnel(streamInfo) {
             if (!randomSegment.uri)
                 throw "segment is missing URI";
 
-            let segmentUrl;
-
-            if (getURL(randomSegment.uri)) {
-                segmentUrl = new URL(randomSegment.uri);
-            } else {
-                segmentUrl = new URL(randomSegment.uri, streamInfo.url);
-            }
+            const segmentUrl = resolveURI(randomSegment.uri, streamInfo);
 
             const segmentSize = await getSegmentSize(segmentUrl, config) / randomSegment.duration;
             return segmentSize;

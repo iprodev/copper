@@ -120,10 +120,13 @@ const remux = async (streamInfo, res) => {
             '-map', '1:a',
         );
     } else {
-        args.push(
-            '-map', '0:v:0',
-            '-map', '0:a:0'
-        );
+        args.push('-map', '0:v:0');
+
+        // muted videos don't need audio, and the input may not even have it
+        // (e.g. a video-only hls playlist with audio in a separate one)
+        if (streamInfo.type !== 'mute') {
+            args.push('-map', '0:a:0');
+        }
     }
 
     args.push(
