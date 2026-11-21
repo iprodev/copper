@@ -28,7 +28,14 @@ export default async function(o) {
         return { error: "fetch.empty" };
     }
 
-    videoData = JSON.parse(JSON.parse(videoData).flashvars.metadata);
+    // ok.ru used to embed metadata as a json string,
+    // but now it's a plain object. support both.
+    const metadata = JSON.parse(videoData)?.flashvars?.metadata;
+    videoData = typeof metadata === "string" ? JSON.parse(metadata) : metadata;
+
+    if (!videoData) {
+        return { error: "fetch.empty" };
+    }
 
     if (videoData.provider !== "UPLOADED_ODKL")
         return { error: "link.unsupported" };
