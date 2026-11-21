@@ -3,7 +3,28 @@ import { genericUserAgent } from "../../config.js";
 import { createStream } from "../../stream/manage.js";
 
 const SPOTLIGHT_VIDEO_REGEX = /<link data-react-helmet="true" rel="preload" href="([^"]+)" as="video"\/>/;
-const NEXT_DATA_REGEX = /<script id="__NEXT_DATA__" type="application\/json">({.+})<\/script><\/body><\/html>$/;
+const NEXT_DATA_REGEX = /<script id="__NEXT_DATA__" type="application\/json">\s*({.+?})\s*<\/script>/s;
+const LD_JSON_REGEX = /<script[^>]*type="application\/ld\+json"[^>]*>(.+?)<\/script>/gs;
+
+const isSnapchatCDN = (url) => {
+    try {
+        return new URL(url).hostname.endsWith(".sc-cdn.net");
+    } catch {
+        return false;
+    }
+}
+
+// spotlight pages now embed the video as a schema.org VideoObject
+const findVideoObject = (html) => {
+    for (const [, json] of html.matchAll(LD_JSON_REGEX)) {
+        try {
+            const data = JSON.parse(json);
+            if (data?.["@type"] === "VideoObject" && isSnapchatCDN(data.contentUrl)) {
+                return data.contentUrl;
+            }
+        } catch {}
+    }
+}
 
 async function getSpotlight(id) {
     const html = await fetch(`https://www.snapchat.com/spotlight/${id}`, {
@@ -14,9 +35,12 @@ async function getSpotlight(id) {
         return { error: "fetch.fail" };
     }
 
-    const videoURL = html.match(SPOTLIGHT_VIDEO_REGEX)?.[1];
+    let videoURL = html.match(SPOTLIGHT_VIDEO_REGEX)?.[1];
+    if (!isSnapchatCDN(videoURL)) {
+        videoURL = findVideoObject(html);
+    }
 
-    if (videoURL && new URL(videoURL).hostname.endsWith(".sc-cdn.net")) {
+    if (videoURL && isSnapchatCDN(videoURL)) {
         return {
             urls: videoURL,
             filename: `snapchat_${id}.mp4`,
@@ -61,10 +85,17 @@ async function getStory(username, storyId, alwaysProxy) {
             }
         }
 
-        const defaultStory = data?.props?.pageProps?.curatedHighlights?.[0];
-        if (defaultStory) {
+        const pageProps = data?.props?.pageProps;
+
+        // profiles without curated highlights may still have spotlight videos
+        let snapList = pageProps?.curatedHighlights?.[0]?.snapList;
+        if (!snapList?.length) {
+            snapList = pageProps?.spotlightHighlights?.flatMap(h => h?.snapList ?? []);
+        }
+
+        if (snapList?.length) {
             return {
-                picker: defaultStory.snapList.map(snap => {
+                picker: snapList.map(snap => {
                     const snapType = snap.snapMediaType === 0 ? "photo" : "video";
                     const snapExt = snapType === "video" ? "mp4" : "jpg";
                     let snapUrl = snap.snapUrls.mediaUrl;

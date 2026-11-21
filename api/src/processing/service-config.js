@@ -120,6 +120,8 @@ export const services = {
     },
     snapchat: {
         patterns: [
+            "@:username/spotlight/:spotlightId",
+            "@:username",
             ":shortLink",
             "spotlight/:spotlightId",
             "add/:username/:storyId",
