@@ -64,6 +64,20 @@ const findBestForPreset = (transcodings, preset) => {
     return inferior;
 }
 
+// public tracks may only have aac streams (e.g. aac_160k, aac_96k),
+// so we pick the one with the highest bitrate
+const findBestAAC = (transcodings) => {
+    return transcodings
+        .filter(entry =>
+            entry?.preset?.startsWith('aac_')
+            && !entry.snipped
+            && !entry?.format?.protocol?.includes('encrypted')
+        )
+        .sort((a, b) =>
+            (parseInt(b.preset.split('_')[1]) || 0) - (parseInt(a.preset.split('_')[1]) || 0)
+        )[0];
+}
+
 export default async function(obj) {
     const clientId = await findClientID();
     if (!clientId) return { error: "fetch.fail" };
@@ -108,7 +122,7 @@ export default async function(obj) {
         return { error: "content.paid" };
     }
 
-    if (!json.media?.transcodings || !json.media?.transcodings.length === 0) {
+    if (!json.media?.transcodings?.length) {
         return { error: "fetch.empty" };
     }
 
@@ -121,6 +135,11 @@ export default async function(obj) {
     if (mp3Media && (obj.format === "mp3" || !selectedStream)) {
         selectedStream = mp3Media;
         bestAudio = "mp3"
+    }
+
+    if (!selectedStream) {
+        selectedStream = findBestAAC(json.media.transcodings);
+        bestAudio = "m4a";
     }
 
     if (!selectedStream) {
