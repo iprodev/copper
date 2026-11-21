@@ -1,6 +1,6 @@
 {
-    "name": "@imput/cobalt-web",
-    "version": "11.7",
+    "name": "@fetchr/web",
+    "version": "1.0",
     "type": "module",
     "private": true,
     "scripts": {
@@ -18,19 +18,19 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/imputnet/cobalt.git"
+        "url": "git+https://github.com/iprodev/fetchr.git"
     },
     "bugs": {
-        "url": "https://github.com/imputnet/cobalt/issues"
+        "url": "https://github.com/iprodev/fetchr/issues"
     },
-    "homepage": "https://cobalt.tools/",
+    "homepage": "https://fetchr.dignitydash.com/",
     "devDependencies": {
         "@eslint/js": "^9.39.5",
+        "@fetchr/version-info": "workspace:^",
         "@fontsource/ibm-plex-mono": "^5.3.0",
         "@fontsource/redaction-10": "^5.3.0",
         "@imput/libav.js-encode-cli": "6.8.7",
         "@imput/libav.js-remux-cli": "^6.8.7",
-        "@imput/version-info": "workspace:^",
         "@sveltejs/adapter-static": "^3.0.11",
         "@sveltejs/kit": "^2.70.4",
         "@sveltejs/vite-plugin-svelte": "^6.2.4",

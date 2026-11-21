@@ -1,12 +1,12 @@
-import type { CobaltPipelineItem, CobaltWorkerProgress } from "$lib/types/workers";
+import type { FetchrPipelineItem, FetchrWorkerProgress } from "$lib/types/workers";
 import type { UUID } from "./queue";
 
-export type CobaltCurrentTaskItem = {
-    type: CobaltPipelineItem['worker'],
+export type FetchrCurrentTaskItem = {
+    type: FetchrPipelineItem['worker'],
     parentId: UUID,
-    progress?: CobaltWorkerProgress,
+    progress?: FetchrWorkerProgress,
 }
 
-export type CobaltCurrentTasks = {
-    [id: UUID]: CobaltCurrentTaskItem,
+export type FetchrCurrentTasks = {
+    [id: UUID]: FetchrCurrentTaskItem,
 }

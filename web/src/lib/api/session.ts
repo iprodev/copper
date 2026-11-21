@@ -1,9 +1,9 @@
 import turnstile from "$lib/api/turnstile";
 import { currentApiURL } from "$lib/api/api-url";
 
-import type { CobaltSession, CobaltErrorResponse, CobaltSessionResponse } from "$lib/types/api";
+import type { FetchrSession, FetchrErrorResponse, FetchrSessionResponse } from "$lib/types/api";
 
-let cache: CobaltSession | undefined;
+let cache: FetchrSession | undefined;
 
 export const requestSession = async () => {
     const apiEndpoint = `${currentApiURL()}/session`;
@@ -17,7 +17,7 @@ export const requestSession = async () => {
         };
     }
 
-    const response: CobaltSessionResponse = await fetch(apiEndpoint, {
+    const response: FetchrSessionResponse = await fetch(apiEndpoint, {
         method: "POST",
         redirect: "manual",
         signal: AbortSignal.timeout(10000),
@@ -31,7 +31,7 @@ export const requestSession = async () => {
                 error: {
                     code: "error.api.timed_out"
                 }
-            } as CobaltErrorResponse
+            } as FetchrErrorResponse
         }
     });
 
@@ -54,7 +54,7 @@ export const getSession = async () => {
         error: {
             code: "error.api.unreachable"
         }
-    } as CobaltErrorResponse
+    } as FetchrErrorResponse
 
     if (!("status" in newSession)) {
         newSession.exp = currentTime() + newSession.exp;

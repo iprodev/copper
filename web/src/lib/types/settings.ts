@@ -1,9 +1,9 @@
 import type { RecursivePartial } from "$lib/types/generic";
-import type { CobaltSettingsV2 } from "$lib/types/settings/v2";
-import type { CobaltSettingsV3 } from "$lib/types/settings/v3";
-import type { CobaltSettingsV4 } from "$lib/types/settings/v4";
-import type { CobaltSettingsV5 } from "$lib/types/settings/v5";
-import type { CobaltSettingsV6 } from "$lib/types/settings/v6";
+import type { FetchrSettingsV2 } from "$lib/types/settings/v2";
+import type { FetchrSettingsV3 } from "$lib/types/settings/v3";
+import type { FetchrSettingsV4 } from "$lib/types/settings/v4";
+import type { FetchrSettingsV5 } from "$lib/types/settings/v5";
+import type { FetchrSettingsV6 } from "$lib/types/settings/v6";
 
 export * from "$lib/types/settings/v2";
 export * from "$lib/types/settings/v3";
@@ -11,12 +11,12 @@ export * from "$lib/types/settings/v4";
 export * from "$lib/types/settings/v5";
 export * from "$lib/types/settings/v6";
 
-export type CobaltSettings = CobaltSettingsV6;
+export type FetchrSettings = FetchrSettingsV6;
 
-export type AnyCobaltSettings = CobaltSettingsV5 | CobaltSettingsV4 | CobaltSettingsV3 | CobaltSettingsV2 | CobaltSettings;
+export type AnyFetchrSettings = FetchrSettingsV5 | FetchrSettingsV4 | FetchrSettingsV3 | FetchrSettingsV2 | FetchrSettings;
 
-export type PartialSettings = RecursivePartial<CobaltSettings>;
+export type PartialSettings = RecursivePartial<FetchrSettings>;
 
-export type AllPartialSettingsWithSchema = RecursivePartial<AnyCobaltSettings> & { schemaVersion: number };
+export type AllPartialSettingsWithSchema = RecursivePartial<AnyFetchrSettings> & { schemaVersion: number };
 
-export type DownloadModeOption = CobaltSettings['save']['downloadMode'];
+export type DownloadModeOption = FetchrSettings['save']['downloadMode'];

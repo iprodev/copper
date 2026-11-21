@@ -6,13 +6,13 @@ import { addItem } from "$lib/state/task-manager/queue";
 import { openQueuePopover } from "$lib/state/queue-visibility";
 import { uuid } from "$lib/util";
 
-import type { CobaltQueueItem } from "$lib/types/queue";
-import type { CobaltCurrentTasks } from "$lib/types/task-manager";
-import { resultFileTypes, type CobaltPipelineItem, type CobaltPipelineResultFileType } from "$lib/types/workers";
-import type { CobaltLocalProcessingResponse, CobaltSaveRequestBody } from "$lib/types/api";
+import type { FetchrQueueItem } from "$lib/types/queue";
+import type { FetchrCurrentTasks } from "$lib/types/task-manager";
+import { resultFileTypes, type FetchrPipelineItem, type FetchrPipelineResultFileType } from "$lib/types/workers";
+import type { FetchrLocalProcessingResponse, FetchrSaveRequestBody } from "$lib/types/api";
 
 export const getMediaType = (type: string) => {
-    const kind = type.split('/')[0] as CobaltPipelineResultFileType;
+    const kind = type.split('/')[0] as FetchrPipelineResultFileType;
 
     if (resultFileTypes.includes(kind)) {
         return kind;
@@ -23,7 +23,7 @@ export const createRemuxPipeline = (file: File) => {
     const parentId = uuid();
     const mediaType = getMediaType(file.type);
 
-    const pipeline: CobaltPipelineItem[] = [{
+    const pipeline: FetchrPipelineItem[] = [{
         worker: "remux",
         workerId: uuid(),
         parentId,
@@ -54,7 +54,7 @@ export const createRemuxPipeline = (file: File) => {
     }
 }
 
-const makeRemuxArgs = (info: CobaltLocalProcessingResponse) => {
+const makeRemuxArgs = (info: FetchrLocalProcessingResponse) => {
     const ffargs = ["-c:v", "copy"];
 
     if (["merge", "remux"].includes(info.type)) {
@@ -77,7 +77,7 @@ const makeRemuxArgs = (info: CobaltLocalProcessingResponse) => {
     return ffargs;
 }
 
-const makeAudioArgs = (info: CobaltLocalProcessingResponse) => {
+const makeAudioArgs = (info: FetchrLocalProcessingResponse) => {
     if (!info.audio) {
         return;
     }
@@ -131,7 +131,7 @@ const showError = (errorCode: string) => {
     return createDialog({
         id: "pipeline-error",
         type: "small",
-        meowbalt: "error",
+        mascot: "error",
         buttons: [
             {
                 text: get(t)("button.gotit"),
@@ -144,8 +144,8 @@ const showError = (errorCode: string) => {
 }
 
 export const createSavePipeline = (
-    info: CobaltLocalProcessingResponse,
-    request: CobaltSaveRequestBody,
+    info: FetchrLocalProcessingResponse,
+    request: FetchrSaveRequestBody,
     oldTaskId?: string
 ) => {
     // this is a pre-queue part of processing,
@@ -156,7 +156,7 @@ export const createSavePipeline = (
     }
 
     const parentId = oldTaskId || uuid();
-    const pipeline: CobaltPipelineItem[] = [];
+    const pipeline: FetchrPipelineItem[] = [];
 
     // reverse is needed for audio (second item) to be downloaded first
     const tunnels = info.tunnel.reverse();
@@ -226,7 +226,7 @@ export const createSavePipeline = (
     openQueuePopover();
 }
 
-export const getProgress = (item: CobaltQueueItem, currentTasks: CobaltCurrentTasks): number => {
+export const getProgress = (item: FetchrQueueItem, currentTasks: FetchrCurrentTasks): number => {
     if (item.state === 'done' || item.state === 'error') {
         return 1;
     } else if (item.state === 'waiting') {

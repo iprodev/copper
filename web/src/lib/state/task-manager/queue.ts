@@ -4,9 +4,9 @@ import { schedule } from "$lib/task-manager/scheduler";
 import { clearFileStorage, removeFromFileStorage } from "$lib/storage/opfs";
 import { clearCurrentTasks, removeWorkerFromQueue } from "$lib/state/task-manager/current-tasks";
 
-import type { CobaltQueue, CobaltQueueItem, CobaltQueueItemRunning, UUID } from "$lib/types/queue";
+import type { FetchrQueue, FetchrQueueItem, FetchrQueueItemRunning, UUID } from "$lib/types/queue";
 
-const clearPipelineCache = (queueItem: CobaltQueueItem) => {
+const clearPipelineCache = (queueItem: FetchrQueueItem) => {
     if (queueItem.state === "running") {
         for (const [ workerId, item ] of Object.entries(queueItem.pipelineResults)) {
             removeFromFileStorage(item.name);
@@ -19,14 +19,14 @@ const clearPipelineCache = (queueItem: CobaltQueueItem) => {
     return queueItem;
 }
 
-let update: (_: Updater<CobaltQueue>) => void;
+let update: (_: Updater<FetchrQueue>) => void;
 
-export const queue = readable<CobaltQueue>(
+export const queue = readable<FetchrQueue>(
     {},
     (_, _update) => { update = _update }
 );
 
-export function addItem(item: CobaltQueueItem) {
+export function addItem(item: FetchrQueueItem) {
     update(queueData => {
         queueData[item.id] = item;
         return queueData;
@@ -87,7 +87,7 @@ export function pipelineTaskDone(id: UUID, workerId: UUID, file: File) {
 
 export function itemRunning(id: UUID) {
     update(queueData => {
-        const data = queueData[id] as CobaltQueueItemRunning;
+        const data = queueData[id] as FetchrQueueItemRunning;
 
         if (data) {
             data.state = 'running';

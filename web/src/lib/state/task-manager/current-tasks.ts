@@ -1,12 +1,12 @@
 import { readonly, writable } from "svelte/store";
 
-import type { CobaltWorkerProgress } from "$lib/types/workers";
-import type { CobaltCurrentTasks, CobaltCurrentTaskItem } from "$lib/types/task-manager";
+import type { FetchrWorkerProgress } from "$lib/types/workers";
+import type { FetchrCurrentTasks, FetchrCurrentTaskItem } from "$lib/types/task-manager";
 
-const currentTasks_ = writable<CobaltCurrentTasks>({});
+const currentTasks_ = writable<FetchrCurrentTasks>({});
 export const currentTasks = readonly(currentTasks_);
 
-export function addWorkerToQueue(workerId: string, item: CobaltCurrentTaskItem) {
+export function addWorkerToQueue(workerId: string, item: FetchrCurrentTaskItem) {
     currentTasks_.update(tasks => {
         tasks[workerId] = item;
         return tasks;
@@ -20,7 +20,7 @@ export function removeWorkerFromQueue(id: string) {
     });
 }
 
-export function updateWorkerProgress(workerId: string, progress: CobaltWorkerProgress) {
+export function updateWorkerProgress(workerId: string, progress: FetchrWorkerProgress) {
     currentTasks_.update(allTasks => {
         allTasks[workerId].progress = progress;
         return allTasks;

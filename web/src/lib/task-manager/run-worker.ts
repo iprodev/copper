@@ -5,7 +5,7 @@ import { queue, itemError } from "$lib/state/task-manager/queue";
 import { runFFmpegWorker } from "$lib/task-manager/runners/ffmpeg";
 import { runFetchWorker } from "$lib/task-manager/runners/fetch";
 
-import type { CobaltPipelineItem } from "$lib/types/workers";
+import type { FetchrPipelineItem } from "$lib/types/workers";
 
 export const killWorker = (worker: Worker, unsubscribe: () => void, interval?: NodeJS.Timeout) => {
     unsubscribe();
@@ -13,7 +13,7 @@ export const killWorker = (worker: Worker, unsubscribe: () => void, interval?: N
     if (interval) clearInterval(interval);
 }
 
-export const startWorker = async ({ worker, workerId, dependsOn, parentId, workerArgs }: CobaltPipelineItem) => {
+export const startWorker = async ({ worker, workerId, dependsOn, parentId, workerArgs }: FetchrPipelineItem) => {
     let files: File[] = [];
 
     switch (worker) {

@@ -1,11 +1,11 @@
 <script>
-    import Meowbalt from "$components/misc/Meowbalt.svelte";
+    import Mascot from "$components/misc/Mascot.svelte";
 
     export let pageName;
 </script>
 
 <div id="placeholder-container" class="center-column-container">
-    <Meowbalt emotion="smile" />
+    <Mascot emotion="smile" />
     <div tabindex="-1" data-first-focus>
         {`${pageName} page is not ready yet!`}
     </div>

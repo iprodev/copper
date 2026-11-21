@@ -2,23 +2,23 @@
     import { t } from "$lib/i18n/translations";
 
     import Omnibox from "$components/save/Omnibox.svelte";
-    import Meowbalt from "$components/misc/Meowbalt.svelte";
+    import Mascot from "$components/misc/Mascot.svelte";
     import SupportedServices from "$components/save/SupportedServices.svelte";
 </script>
 
 <svelte:head>
-    <title>{$t("general.cobalt")}</title>
-    <meta property="og:title" content={$t("general.cobalt")} />
+    <title>{$t("general.fetchr")}</title>
+    <meta property="og:title" content={$t("general.fetchr")} />
 </svelte:head>
 
-<div id="cobalt-save-container" class="center-column-container">
+<div id="fetchr-save-container" class="center-column-container">
     <SupportedServices />
     <main
-        id="cobalt-save"
+        id="fetchr-save"
         tabindex="-1"
         data-first-focus
     >
-        <Meowbalt emotion="smile" />
+        <Mascot emotion="smile" />
         <Omnibox />
     </main>
     <div id="terms-note">
@@ -28,12 +28,12 @@
 </div>
 
 <style>
-    #cobalt-save-container {
+    #fetchr-save-container {
         padding: var(--padding);
         overflow: hidden;
     }
 
-    #cobalt-save {
+    #fetchr-save {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -53,7 +53,7 @@
     }
 
     @media screen and (max-width: 535px) {
-        #cobalt-save-container {
+        #fetchr-save-container {
             padding-top: calc(var(--padding) / 2);
         }
 

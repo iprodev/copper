@@ -1,9 +1,9 @@
 import type { YoutubeDubLang } from "$lib/settings/audio-sub-language";
-import { type CobaltSettingsV2 } from "$lib/types/settings/v2";
+import { type FetchrSettingsV2 } from "$lib/types/settings/v2";
 
-export type CobaltSettingsV3 = Omit<CobaltSettingsV2, 'schemaVersion' | 'save'> & {
+export type FetchrSettingsV3 = Omit<FetchrSettingsV2, 'schemaVersion' | 'save'> & {
     schemaVersion: 3,
-    save: Omit<CobaltSettingsV2['save'], 'youtubeDubBrowserLang'> & {
+    save: Omit<FetchrSettingsV2['save'], 'youtubeDubBrowserLang'> & {
         youtubeDubLang: YoutubeDubLang;
     };
 };

@@ -1,28 +1,30 @@
 <script>
-    import IconCobalt from "$components/icons/Cobalt.svelte";
+    import IconFetchr from "$components/icons/Fetchr.svelte";
 </script>
 
-<div id="cobalt-logo">
-    <IconCobalt />
+<div id="fetchr-logo">
+    <IconFetchr />
 </div>
 
 <style>
-    #cobalt-logo {
+    #fetchr-logo {
         display: flex;
         justify-content: center;
         align-items: center;
         padding: calc(var(--sidebar-tab-padding) * 2);
+        color: var(--sidebar-highlight);
 
         /* accommodate space for scaling animation */
         padding-bottom: calc(var(--sidebar-tab-padding) * 2 - var(--sidebar-inner-padding));
     }
 
-    #cobalt-logo :global(path) {
-        fill: var(--sidebar-highlight);
+    #fetchr-logo :global(svg) {
+        width: 26px;
+        height: 26px;
     }
 
     @media screen and (max-width: 535px) {
-        #cobalt-logo {
+        #fetchr-logo {
             display: none;
         }
     }

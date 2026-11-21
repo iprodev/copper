@@ -1,6 +1,6 @@
 <script lang="ts">
     import "../app.css";
-    import "../fonts/noto-mono-cobalt.css";
+    import "../fonts/noto-mono-subset.css";
 
     import "@fontsource/ibm-plex-mono/400.css";
     import "@fontsource/ibm-plex-mono/400-italic.css";
@@ -19,14 +19,13 @@
 
     import { t } from "$lib/i18n/translations";
 
-    import { device, app } from "$lib/device";
+    import { device } from "$lib/device";
     import { getServerInfo } from "$lib/api/server-info";
     import currentTheme, { statusBarColors } from "$lib/state/theme";
     import { turnstileCreated, turnstileEnabled } from "$lib/state/turnstile";
 
     import Sidebar from "$components/sidebar/Sidebar.svelte";
     import Turnstile from "$components/misc/Turnstile.svelte";
-    import NotchSticker from "$components/misc/NotchSticker.svelte";
     import DialogHolder from "$components/dialog/DialogHolder.svelte";
     import ProcessingQueue from "$components/queue/ProcessingQueue.svelte";
     import UpdateNotification from "$components/misc/UpdateNotification.svelte";
@@ -100,7 +99,7 @@
         <div id="preload" aria-hidden="true">??</div>
     {/if}
     <div
-        id="cobalt"
+        id="fetchr"
         class:loaded={browser}
         data-chrome={device.browser.chrome}
         data-iphone={device.is.iPhone}
@@ -108,9 +107,6 @@
         data-reduce-motion={reduceMotion}
         data-reduce-transparency={reduceTransparency}
     >
-        {#if device.is.iPhone && app.is.installed}
-            <NotchSticker />
-        {/if}
         <DialogHolder />
         <Sidebar />
         {#if $updated}
@@ -127,7 +123,7 @@
 </div>
 
 <style>
-    #cobalt {
+    #fetchr {
         height: 100%;
         width: 100%;
         display: grid;
@@ -142,7 +138,7 @@
 
     /* add padding for notch / dynamic island in landscape */
     @media screen and (orientation: landscape) and (min-width: 535px) {
-        #cobalt[data-iphone="true"] {
+        #fetchr[data-iphone="true"] {
             grid-template-columns:
                 calc(
                     var(--sidebar-width) + var(--sidebar-inner-padding) * 2 +
@@ -151,7 +147,7 @@
                 1fr;
         }
 
-        #cobalt[data-iphone="true"] #content {
+        #fetchr[data-iphone="true"] #content {
             padding-right: env(safe-area-inset-right);
         }
     }
@@ -188,7 +184,7 @@
             --sidebar-highlight: var(--primary);
         }
 
-        #cobalt {
+        #fetchr {
             display: grid;
             grid-template-columns: unset;
             grid-template-rows:
@@ -217,9 +213,6 @@
         height: 0;
         position: absolute;
         z-index: -10;
-        content: url(/meowbalt/smile.png) url(/meowbalt/error.png)
-            url(/meowbalt/question.png) url(/meowbalt/think.png);
-
         font-family: "Noto Sans Mono";
         font-size: 0;
         opacity: 0;

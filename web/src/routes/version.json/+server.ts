@@ -1,5 +1,5 @@
 import { json } from "@sveltejs/kit";
-import { getCommit, getBranch, getRemote, getVersion } from "@imput/version-info";
+import { getCommit, getBranch, getRemote, getVersion } from "@fetchr/version-info";
 
 export async function GET() {
     return json({

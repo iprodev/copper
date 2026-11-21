@@ -1,5 +1,5 @@
-import type { CobaltFileUrlType } from "$lib/types/api";
-import type { MeowbaltEmotions } from "$lib/types/meowbalt";
+import type { FetchrFileUrlType } from "$lib/types/api";
+import type { MascotEmotions } from "$lib/types/mascot";
 
 export type DialogButton = {
     text: string,
@@ -25,7 +25,7 @@ type Dialog = {
 
 type SmallDialog = Dialog & {
     type: "small",
-    meowbalt?: MeowbaltEmotions,
+    mascot?: MascotEmotions,
     icon?: SmallDialogIcons,
     title?: string,
     bodyText?: string,
@@ -45,7 +45,7 @@ type SavingDialog = Dialog & {
     bodyText?: string,
     url?: string,
     file?: File,
-    urlType?: CobaltFileUrlType,
+    urlType?: FetchrFileUrlType,
 };
 
 export type DialogInfo = SmallDialog | PickerDialog | SavingDialog;

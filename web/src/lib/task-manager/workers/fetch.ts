@@ -16,7 +16,7 @@ const fetchFile = async (url: string) => {
             await fetchFile(url);
         } else {
             self.postMessage({
-                cobaltFetchWorker: {
+                fetchrFetchWorker: {
                     error: code,
                 }
             });
@@ -64,7 +64,7 @@ const fetchFile = async (url: string) => {
 
             if (expectedSize) {
                 self.postMessage({
-                    cobaltFetchWorker: {
+                    fetchrFetchWorker: {
                         progress: Math.round((receivedBytes / expectedSize) * 100),
                         size: receivedBytes,
                     }
@@ -83,7 +83,7 @@ const fetchFile = async (url: string) => {
         }
 
         self.postMessage({
-            cobaltFetchWorker: {
+            fetchrFetchWorker: {
                 result: file
             }
         });
@@ -99,8 +99,8 @@ const fetchFile = async (url: string) => {
 }
 
 self.onmessage = async (event: MessageEvent) => {
-    if (event.data.cobaltFetchWorker) {
-        await fetchFile(event.data.cobaltFetchWorker.url);
+    if (event.data.fetchrFetchWorker) {
+        await fetchFile(event.data.fetchrFetchWorker.url);
         self.close();
     }
 }

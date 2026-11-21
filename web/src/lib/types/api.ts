@@ -1,6 +1,6 @@
-import type { CobaltSettings } from "$lib/types/settings";
+import type { FetchrSettings } from "$lib/types/settings";
 
-enum CobaltResponseType {
+enum FetchrResponseType {
     Error = 'error',
     Picker = 'picker',
     Redirect = 'redirect',
@@ -8,8 +8,8 @@ enum CobaltResponseType {
     LocalProcessing = 'local-processing',
 }
 
-export type CobaltErrorResponse = {
-    status: CobaltResponseType.Error,
+export type FetchrErrorResponse = {
+    status: FetchrResponseType.Error,
     error: {
         code: string,
         context?: {
@@ -19,13 +19,13 @@ export type CobaltErrorResponse = {
     },
 };
 
-type CobaltPartialURLResponse = {
+type FetchrPartialURLResponse = {
     url: string,
     filename: string,
 }
 
-type CobaltPickerResponse = {
-    status: CobaltResponseType.Picker
+type FetchrPickerResponse = {
+    status: FetchrResponseType.Picker
     picker: {
         type: 'photo' | 'video' | 'gif',
         url: string,
@@ -35,15 +35,15 @@ type CobaltPickerResponse = {
     audioFilename?: string,
 };
 
-type CobaltRedirectResponse = {
-    status: CobaltResponseType.Redirect,
-} & CobaltPartialURLResponse;
+type FetchrRedirectResponse = {
+    status: FetchrResponseType.Redirect,
+} & FetchrPartialURLResponse;
 
-type CobaltTunnelResponse = {
-    status: CobaltResponseType.Tunnel,
-} & CobaltPartialURLResponse;
+type FetchrTunnelResponse = {
+    status: FetchrResponseType.Tunnel,
+} & FetchrPartialURLResponse;
 
-export const CobaltFileMetadataKeys = [
+export const FetchrFileMetadataKeys = [
     'album',
     'composer',
     'genre',
@@ -56,23 +56,23 @@ export const CobaltFileMetadataKeys = [
     'sublanguage',
 ];
 
-export type CobaltFileMetadata = Record<
-    typeof CobaltFileMetadataKeys[number], string | undefined
+export type FetchrFileMetadata = Record<
+    typeof FetchrFileMetadataKeys[number], string | undefined
 >;
 
-export type CobaltLocalProcessingType = 'merge' | 'mute' | 'audio' | 'gif' | 'remux' | 'proxy';
+export type FetchrLocalProcessingType = 'merge' | 'mute' | 'audio' | 'gif' | 'remux' | 'proxy';
 
-export type CobaltLocalProcessingResponse = {
-    status: CobaltResponseType.LocalProcessing,
+export type FetchrLocalProcessingResponse = {
+    status: FetchrResponseType.LocalProcessing,
 
-    type: CobaltLocalProcessingType,
+    type: FetchrLocalProcessingType,
     service: string,
     tunnel: string[],
 
     output: {
         type: string, // mimetype
         filename: string,
-        metadata?: CobaltFileMetadata,
+        metadata?: FetchrFileMetadata,
         subtitles?: boolean,
     },
 
@@ -87,15 +87,15 @@ export type CobaltLocalProcessingResponse = {
     isHLS?: boolean,
 }
 
-export type CobaltFileUrlType = "redirect" | "tunnel";
+export type FetchrFileUrlType = "redirect" | "tunnel";
 
-export type CobaltSession = {
+export type FetchrSession = {
     token: string,
     exp: number,
 }
 
-export type CobaltServerInfo = {
-    cobalt: {
+export type FetchrServerInfo = {
+    fetchr: {
         version: string,
         url: string,
         startTime: string,
@@ -112,14 +112,14 @@ export type CobaltServerInfo = {
 // TODO: strict partial
 // this allows for extra properties, which is not ideal,
 // but i couldn't figure out how to make a strict partial :(
-export type CobaltSaveRequestBody =
-    { url: string } & Partial<Omit<CobaltSettings['save'], 'savingMethod'>>;
+export type FetchrSaveRequestBody =
+    { url: string } & Partial<Omit<FetchrSettings['save'], 'savingMethod'>>;
 
-export type CobaltSessionResponse = CobaltSession | CobaltErrorResponse;
-export type CobaltServerInfoResponse = CobaltServerInfo | CobaltErrorResponse;
+export type FetchrSessionResponse = FetchrSession | FetchrErrorResponse;
+export type FetchrServerInfoResponse = FetchrServerInfo | FetchrErrorResponse;
 
-export type CobaltAPIResponse = CobaltErrorResponse
-                              | CobaltPickerResponse
-                              | CobaltRedirectResponse
-                              | CobaltTunnelResponse
-                              | CobaltLocalProcessingResponse;
+export type FetchrAPIResponse = FetchrErrorResponse
+                              | FetchrPickerResponse
+                              | FetchrRedirectResponse
+                              | FetchrTunnelResponse
+                              | FetchrLocalProcessingResponse;
