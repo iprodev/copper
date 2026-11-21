@@ -25,6 +25,10 @@ services:
             # it's recommended to configure bot protection or api keys if the instance is public,
             # see /docs/protect-an-instance.md for more info
 
+            # newgrounds blocks automated requests with a browser check,
+            # so it's disabled. remove it from the list to enable it again
+            DISABLED_SERVICES: "newgrounds"
+
             # see /docs/run-an-instance.md for more variables that you can use here
 
         labels:

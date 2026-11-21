@@ -7,6 +7,10 @@ on:
       - api/**
       - packages/**
 
+env:
+  # newgrounds blocks automated requests with a browser check
+  DISABLED_SERVICES: newgrounds
+
 jobs:
   check-services:
     name: test service functionality

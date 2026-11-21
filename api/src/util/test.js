@@ -96,10 +96,15 @@ switch (action) {
             break;
         }
 
-        console.log(JSON.stringify(fromConfig));
+        // services disabled via DISABLED_SERVICES aren't offered, so they aren't tested
+        console.log(JSON.stringify(fromConfig.filter(s => env.enabledServices.has(s))));
         break;
 
     case "run-tests-for":
+        if (!env.enabledServices.has(process.argv[3]) && env.allServices.has(process.argv[3])) {
+            console.log(`${process.argv[3]} is disabled via DISABLED_SERVICES, skipping tests`);
+            break;
+        }
 
         try {
             const { softFails } = await runTestsFor(process.argv[3]);
@@ -116,6 +121,10 @@ switch (action) {
         const failCounters = {};
 
         for (const service in services) {
+            if (!env.enabledServices.has(service)) {
+                continue;
+            }
+
             printHeader(service, maxHeaderLen);
             const { fails, softFails } = await runTestsFor(service);
             failCounters[service] = fails;
