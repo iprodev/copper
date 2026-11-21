@@ -4,6 +4,7 @@ import { resolveRedirectingURL } from "../url.js";
 const videoRegex = /"url":"(https:\/\/v1\.pinimg\.com\/videos\/.*?)"/g;
 const imageRegex = /src="(https:\/\/i\.pinimg\.com\/.*\.(jpg|gif))"/g;
 const notFoundRegex = /"__typename"\s*:\s*"PinNotFound"/;
+const ogImageRegex = /<meta(?=[^>]*property="og:image")[^>]*content="(https:\/\/i\.pinimg\.com\/[^"]+\.(?:jpg|gif))"/;
 
 export default async function(o) {
     let id = o.id;
@@ -13,18 +14,16 @@ export default async function(o) {
         id = patternMatch?.id;
     }
 
-    if (id.includes("--")) id = id.split("--")[1];
+    if (id?.includes("--")) id = id.split("--")[1];
     if (!id) return { error: "fetch.fail" };
 
     const html = await fetch(`https://www.pinterest.com/pin/${id}/`, {
         headers: { "user-agent": genericUserAgent }
     }).then(r => r.text()).catch(() => {});
 
-    const invalidPin = html.match(notFoundRegex);
-
-    if (invalidPin) return { error: "fetch.empty" };
-
     if (!html) return { error: "fetch.fail" };
+
+    if (notFoundRegex.test(html)) return { error: "fetch.empty" };
 
     const videoLink = [...html.matchAll(videoRegex)]
                     .map(([, link]) => link)
@@ -36,16 +35,16 @@ export default async function(o) {
         audioFilename: `pinterest_${id}_audio`
     }
 
+    // some page variants don't have <img> tags, so og:image is used as a fallback
     const imageLink = [...html.matchAll(imageRegex)]
                     .map(([, link]) => link)
-                    .find(a => a.endsWith('.jpg') || a.endsWith('.gif'));
-
-    const imageType = imageLink.endsWith(".gif") ? "gif" : "jpg"
+                    .find(a => a.endsWith('.jpg') || a.endsWith('.gif'))
+                    ?? html.match(ogImageRegex)?.[1];
 
     if (imageLink) return {
         urls: imageLink,
         isPhoto: true,
-        filename: `pinterest_${id}.${imageType}`
+        filename: `pinterest_${id}.${imageLink.endsWith(".gif") ? "gif" : "jpg"}`
     }
 
     return { error: "fetch.empty" };
