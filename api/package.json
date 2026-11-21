@@ -6,7 +6,7 @@
     "exports": "./src/fetchr.js",
     "type": "module",
     "engines": {
-        "node": ">=22"
+        "node": ">=22 <26"
     },
     "scripts": {
         "start": "node src/fetchr",
