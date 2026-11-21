@@ -68,7 +68,7 @@
     },
     {
         "name": "on.soundcloud link, different stream type",
-        "url": "https://on.soundcloud.com/AG4c",
+        "url": "https://on.soundcloud.com/riNAkIRmxnlDPJ6VDg",
         "params": {},
         "expected": {
             "code": 200,
