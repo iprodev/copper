@@ -49,7 +49,8 @@ sudo ./install.sh
 3. دانلود فایل‌های سایت از آخرین نسخه (release) در گیت‌هاب.
 4. اضافه کردن دو دامنه به nginx.
 5. اجرای کانتینرها و بررسی اینکه API و WARP کار می‌کنند.
-6. گرفتن گواهی رایگان https از Let's Encrypt با certbot.
+6. روشن کردن نظارت خودکار (اختیاری).
+7. گرفتن گواهی رایگان https از Let's Encrypt با certbot.
 
 اگر پورت ۹۰۰۰ قبلاً استفاده شده باشد، اسکریپت خودش یک پورت آزاد دیگر انتخاب می‌کند.
 
@@ -128,6 +129,37 @@ sudo docker compose logs -f api
    ```
 4. `cd /opt/fetchr && sudo docker compose up -d`
 
+## نظارت خودکار
+
+اگر هنگام نصب نظارت را روشن کرده باشید، هر ۱۰ دقیقه این موارد بررسی می‌شوند:
+
+| بررسی | اگر مشکل داشت |
+|:--|:--|
+| API جواب می‌دهد؟ | API دوباره راه‌اندازی می‌شود (حداکثر هر نیم ساعت یک بار) |
+| WARP وصل است؟ | WARP دوباره راه‌اندازی می‌شود (حداکثر هر نیم ساعت یک بار) |
+| دانلود واقعی یک ویدیوی یوتیوب کار می‌کند؟ | WARP دوباره ثبت‌نام می‌کند تا IP جدید بگیرد (حداکثر هر ساعت یک بار) |
+| همه‌ی کانتینرها اجرا می‌شوند؟ | فقط هشدار |
+| فضای دیسک پر نشده؟ (بیش از ۹۰٪) | فقط هشدار |
+
+هر وقت چیزی خراب شود یا دوباره درست شود، از طریق ربات به **مدیرهای ربات** (`BOT_ADMIN_IDS`) پیام فرستاده می‌شود. هشدار تکراری فرستاده نمی‌شود.
+برای هشدارها، ربات تلگرام باید راه‌اندازی شده باشد.
+
+دستورهای مفید:
+
+```bash
+# وضعیت همه‌چیز، بدون تعمیر یا هشدار
+sudo /opt/fetchr/monitor.sh --report
+
+# فرستادن یک پیام آزمایشی به مدیرها
+sudo /opt/fetchr/monitor.sh --test-alert
+
+# گزارش اجراهای قبلی
+sudo journalctl -u fetchr-monitor --since today
+
+# خاموش کردن نظارت
+sudo systemctl disable --now fetchr-monitor.timer
+```
+
 ## تنظیمات
 
 همه‌ی تنظیمات در `/opt/fetchr/.env` است. بعد از هر تغییر:
@@ -156,7 +188,7 @@ cd deploy && sudo ./install.sh
 
 ## مشکلات رایج
 
-**یوتیوب خطا می‌دهد:** اول وصل بودن WARP را بررسی کنید (بالا). اگر یوتیوب IP فعلی WARP را هم بلاک کرده باشد، با ثبت‌نام دوباره IP عوض می‌شود:
+**یوتیوب خطا می‌دهد:** اگر نظارت روشن باشد، این مشکل معمولاً خودکار حل می‌شود. وگرنه اول وصل بودن WARP را بررسی کنید (بالا). اگر یوتیوب IP فعلی WARP را هم بلاک کرده باشد، با ثبت‌نام دوباره IP عوض می‌شود:
 ```bash
 cd /opt/fetchr
 sudo docker compose stop warp && sudo rm -rf warp-data/* && sudo docker compose up -d warp
@@ -175,6 +207,9 @@ sudo certbot --nginx -d fetchr.download -d api.fetchr.download
 
 ```bash
 cd /opt/fetchr && sudo docker compose --profile '*' down -v
+sudo systemctl disable --now fetchr-monitor.timer
+sudo rm -f /etc/systemd/system/fetchr-monitor.*
+sudo rm -rf /var/lib/fetchr-monitor
 sudo rm -f /etc/nginx/sites-enabled/fetchr-*.conf /etc/nginx/sites-available/fetchr-*.conf
 sudo nginx -t && sudo systemctl reload nginx
 sudo rm -rf /opt/fetchr /var/www/fetchr

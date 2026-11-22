@@ -295,9 +295,29 @@ for _ in $(seq 1 15); do
 done
 [[ "$warp_status" == "warp=on" || "$warp_status" == "warp=plus" ]] && ok "warp is connected ($warp_status)" || warn "warp isn't connected yet ($warp_status), check: docker compose -f $INSTALL_DIR/docker-compose.yml logs warp"
 
+# ---------------------------------------------------------------- monitor
+echo
+bold "6. monitoring"
+
+cp "$SCRIPT_DIR/monitor.sh" "$INSTALL_DIR/monitor.sh"
+chmod 755 "$INSTALL_DIR/monitor.sh"
+
+if systemctl list-unit-files fetchr-monitor.timer > /dev/null 2>&1 && [[ -f /etc/systemd/system/fetchr-monitor.timer ]]; then
+    ok "monitoring is on (updated)"
+elif confirm "check fetchr every 10 minutes, fix what's possible and alert the bot's admins in telegram?"; then
+    sed "s#__INSTALL_DIR__#$INSTALL_DIR#g" "$SCRIPT_DIR/systemd/fetchr-monitor.service" > /etc/systemd/system/fetchr-monitor.service
+    cp "$SCRIPT_DIR/systemd/fetchr-monitor.timer" /etc/systemd/system/fetchr-monitor.timer
+    systemctl daemon-reload
+    systemctl enable --now fetchr-monitor.timer > /dev/null 2>&1
+    ok "monitoring is on"
+    [[ -n "$(env_get BOT_ADMIN_IDS)" ]] || warn "alerts go to the bot's admins: set BOT_TOKEN and BOT_ADMIN_IDS in $INSTALL_DIR/.env"
+else
+    info "monitoring is off. turn it on later by running this script again."
+fi
+
 # ---------------------------------------------------------------- https
 echo
-bold "6. https"
+bold "7. https"
 
 if grep -q "listen 443" "$available/fetchr-web.conf" && grep -q "listen 443" "$available/fetchr-api.conf"; then
     ok "https is already set up"
@@ -340,3 +360,4 @@ info "api:     https://$API_DOMAIN"
 info "settings: $INSTALL_DIR/.env (after changing it: cd $INSTALL_DIR && docker compose up -d)"
 [[ "$(env_get COMPOSE_PROFILES)" == *bot* ]] && info "telegram bot is on" || info "telegram bot is off (see deploy/README.md to turn it on)"
 info "to update later, run this script again."
+info "status of everything: sudo $INSTALL_DIR/monitor.sh --report"
