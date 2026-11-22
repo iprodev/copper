@@ -13,6 +13,17 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --prod --frozen-lockfile
 
 RUN pnpm deploy --filter=@fetchr/api --prod /prod/api
+RUN pnpm deploy --filter=@fetchr/bot --prod /prod/bot
+
+# telegram bot: docker build --target bot .
+FROM base AS bot
+WORKDIR /app
+
+COPY --from=build --chown=node:node /prod/bot /app
+
+USER node
+
+CMD [ "node", "src/index.js" ]
 
 FROM base AS api
 WORKDIR /app

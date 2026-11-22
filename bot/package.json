@@ -1,0 +1,24 @@
+{
+    "name": "@fetchr/bot",
+    "description": "telegram bot for fetchr: send a link, get the file",
+    "version": "1.0.0",
+    "author": "iProDev",
+    "type": "module",
+    "private": true,
+    "engines": {
+        "node": ">=22 <26"
+    },
+    "scripts": {
+        "start": "node src/index.js",
+        "test": "node --test \"tests/**/*.test.js\""
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/iprodev/fetchr.git"
+    },
+    "license": "AGPL-3.0",
+    "bugs": {
+        "url": "https://github.com/iprodev/fetchr/issues"
+    },
+    "homepage": "https://github.com/iprodev/fetchr#readme"
+}
