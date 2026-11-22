@@ -6,6 +6,7 @@ import { FileWatcher } from "../misc/file-watcher.js";
 import { isURL } from "../misc/utils.js";
 import * as cluster from "../misc/cluster.js";
 import { Green, Yellow } from "../misc/console-text.js";
+import { parseServiceProxies, validateProxyURL } from "../misc/proxy.js";
 
 const forceLocalProcessingOptions = ["never", "session", "always"];
 const youtubeHlsOptions = ["never", "key", "always"];
@@ -95,6 +96,9 @@ export const loadEnvs = (env = process.env) => {
 
         externalProxy: env.API_EXTERNAL_PROXY,
 
+        // per-service proxies: "youtube=socks5://host:1080,instagram=direct"
+        serviceProxies: env.SERVICE_PROXIES,
+
         // used only for comparing against old values when envs are being updated
         httpProxyValues: httpProxyVariables.map(k => String(env[k])).join(''),
 
@@ -176,6 +180,23 @@ export const validateEnvs = async (env) => {
 
     if (env.externalProxy && env.freebindCIDR) {
         throw new Error('freebind is not available when external proxy is enabled')
+    }
+
+    for (const key of ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]) {
+        if (process.env[key]) validateProxyURL(process.env[key]);
+    }
+
+    if (env.externalProxy) {
+        validateProxyURL(env.externalProxy);
+    }
+
+    if (env.serviceProxies) {
+        if (env.freebindCIDR) {
+            throw new Error('SERVICE_PROXIES is not available when freebind is enabled');
+        }
+
+        // throws on unknown services and invalid proxy urls
+        parseServiceProxies(env.serviceProxies, new Set([...env.allServices, "generic"]));
     }
 
     if (env.externalProxy && !loggedProxyWarning) {

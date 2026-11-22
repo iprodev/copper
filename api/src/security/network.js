@@ -6,6 +6,7 @@
 import dns from "node:dns";
 import ip from "ipaddr.js";
 import { Agent } from "undici";
+import { hasProxyFor } from "../misc/proxy.js";
 
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 const ALLOWED_PORTS = new Set(["", "80", "443"]);
@@ -88,8 +89,7 @@ export const assertSafeURL = async (input, { resolve = lookupAll } = {}) => {
 // at connection time. this covers dns rebinding between the check above and
 // the actual request. behind an http proxy, the proxy resolves hostnames,
 // so only the checks above apply.
-const usesProxy = () =>
-    ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"].some(k => process.env[k]);
+const usesProxy = () => hasProxyFor("generic");
 
 const guardedLookup = (hostname, options, callback) => {
     dns.lookup(hostname, { ...options, all: true, verbatim: true }, (err, addresses) => {

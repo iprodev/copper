@@ -23,12 +23,13 @@ this document is not final and will expand over time. feel free to improve it!
 |:--------------------|:----------|:--------------------------------------|
 | API_LISTEN_ADDRESS  | `0.0.0.0` | `127.0.0.1`                           |
 | FREEBIND_CIDR       |           | `2001:db8::/32`                       |
+| SERVICE_PROXIES     |           | `youtube=socks5://10.0.0.3:1080`      |
 
 #### undici proxy vars
 | name        | value example                         |
 |:------------|:--------------------------------------|
 | HTTP_PROXY  | `http://user:password@10.0.0.1:1337/` |
-| HTTPS_PROXY | `https://10.0.0.2:1337/`              |
+| HTTPS_PROXY | `socks5://user:password@10.0.0.2:1080` |
 | NO_PROXY    | `localhost`                           |
 
 [*view details*](#networking)
@@ -117,7 +118,7 @@ the value is a string of fetchr-supported services.
 ### ENABLE_GENERIC_EXTRACTOR
 when set to `1`, links from sites that don't have a dedicated service are handled by the generic extractor. it looks for media on the page (schema.org `VideoObject`, `og:video`, `<video>`/`<audio>` tags and direct links to media files), and also accepts direct links to media files and hls playlists. disabled by default.
 
-**security:** this makes your instance request urls provided by users. every request (including redirects, hls playlists and their segments) is checked, and only `http`/`https` on ports 80 and 443 to public ip addresses is allowed. loopback, private networks, link-local addresses (such as cloud metadata endpoints) and other reserved ranges are refused. if your instance uses an http proxy, the proxy resolves hostnames, so make sure it doesn't allow access to internal networks either.
+**security:** this makes your instance request urls provided by users. every request (including redirects, hls playlists and their segments) is checked, and only `http`/`https` on ports 80 and 443 to public ip addresses is allowed. loopback, private networks, link-local addresses (such as cloud metadata endpoints) and other reserved ranges are refused. if your instance uses a proxy, the proxy resolves hostnames, so make sure it doesn't allow access to internal networks either.
 
 api keys with an `allowedServices` list need `generic` in it to use the generic extractor.
 
@@ -139,22 +140,46 @@ defines the local address for the api instance. if you are using a docker contai
 the value is a local IP address.
 
 ### HTTP_PROXY, HTTPS_PROXY, NO_PROXY
-URL of the proxy that will be passed to [`EnvHttpProxyAgent`](https://undici.nodejs.org/#/docs/api/EnvHttpProxyAgent) for proxying external requests. if some fetchr functionality breaks when using a proxy, please [make a new issue](https://github.com/iprodev/fetchr/issues) about it!
+URL of the proxy used for external requests. if some fetchr functionality breaks when using a proxy, please [make a new issue](https://github.com/iprodev/fetchr/issues) about it!
 
-quoted from [undici docs](https://undici.nodejs.org/#/docs/api/EnvHttpProxyAgent):
-> When `HTTP_PROXY` and `HTTPS_PROXY` are set, `HTTP_PROXY` is used for HTTP requests and `HTTPS_PROXY` is used for HTTPS requests. If only `HTTP_PROXY` is set, `HTTP_PROXY` is used for both HTTP and HTTPS requests. If only `HTTPS_PROXY` is set, it is only used for HTTPS requests.
+supported proxy types:
+- `http://` and `https://`: regular http proxies (passed to undici's [`EnvHttpProxyAgent`](https://undici.nodejs.org/#/docs/api/EnvHttpProxyAgent)).
+- `socks5://` (also `socks://` and `socks5h://`) and `socks4://` (also `socks4a://`): socks proxies. hostnames are resolved by the proxy, so dns requests don't leak from your server. the default port is `1080`.
 
-> `NO_PROXY` is a comma or space-separated list of hostnames that should not be proxied. The list may contain leading wildcard characters (`*`). If `NO_PROXY` is set, the EnvHttpProxyAgent() will bypass the proxy for requests to hosts that match the list. If `NO_PROXY` is set to `"*"`, the EnvHttpProxyAgent() will bypass the proxy for all requests.
+credentials go in the URL (`socks5://user:password@host:1080`). special characters in them must be [url-encoded](https://developer.mozilla.org/en-US/docs/Glossary/Percent-encoding), for example `p@ss` becomes `p%40ss`.
+
+when `HTTP_PROXY` and `HTTPS_PROXY` are both set, `HTTP_PROXY` is used for http requests and `HTTPS_PROXY` is used for https requests. if only `HTTP_PROXY` is set, it's used for both. if only `HTTPS_PROXY` is set, it's only used for https requests (almost every request fetchr makes is https).
+
+`NO_PROXY` is a comma or space-separated list of hostnames that should not be proxied. the list may contain leading wildcard characters (`*`), and entries may end with a port (`example.com:8080`). if `NO_PROXY` is set to `"*"`, the proxy is bypassed for all requests.
+
+to use a proxy only for some services, see [`SERVICE_PROXIES`](#service_proxies).
 
 the value is a string:
-- `HTTP_PROXY`/`HTTPS_PROXY`: URL or hostname.
+- `HTTP_PROXY`/`HTTPS_PROXY`: URL. fetchr refuses to start if it's not a valid proxy URL.
 - `NO_PROXY`: comma or space-separated list of hostnames.
+
+### SERVICE_PROXIES
+proxies for specific services. useful when only some services block your server's ip address (for example youtube or instagram blocking datacenter ips), so that other services keep using a direct connection (or the general proxy).
+
+the value is a list of `service=proxy` entries, separated by commas, semicolons, spaces or new lines:
+```
+SERVICE_PROXIES="youtube=socks5://user:password@10.0.0.3:1080, instagram=http://10.0.0.4:8080, tiktok=direct"
+```
+
+- `service` is a service name as it's used in [`DISABLED_SERVICES`](#disabled_services) (`youtube`, `instagram`, `bsky`, ...), or `generic` for the generic extractor.
+- `proxy` is a proxy URL of any type supported by [`HTTP_PROXY`](#http_proxy-https_proxy-no_proxy) (`http`, `https`, `socks4`, `socks5`), or `direct` to make the service skip the general proxy and connect directly.
+
+the proxy is used for every request of the service: while extracting media info, and while tunneling or remuxing the media itself. services that aren't in the list use `HTTP_PROXY`/`HTTPS_PROXY` (if set), or a direct connection. `NO_PROXY` only applies to the general proxy.
+
+fetchr refuses to start if an entry is invalid or names an unknown service. `SERVICE_PROXIES` can't be used together with [`FREEBIND_CIDR`](#freebind_cidr).
+
+**security:** when the generic extractor uses a proxy (through `SERVICE_PROXIES` or the general proxy), the proxy resolves hostnames, so make sure it doesn't allow access to your internal networks.
 
 ### API_EXTERNAL_PROXY (deprecated)
 > [!WARNING]
 > this env variable is deprecated and will be removed in a future release. please update your configuration to use `HTTP_PROXY` or `HTTPS_PROXY`, as mentioned above.
 
-URL of the proxy that will be passed to [`EnvHttpProxyAgent`](https://undici.nodejs.org/#/docs/api/EnvHttpProxyAgent) and used for proxying external requests. HTTP(S) only.
+URL of the proxy used for external requests. supports the same proxy types as `HTTP_PROXY`, and is used for both http and https requests.
 
 the value is a URL.
 

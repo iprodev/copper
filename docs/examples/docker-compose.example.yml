@@ -33,6 +33,10 @@ services:
             # read docs/api-env-variables.md#enable_generic_extractor first
             # ENABLE_GENERIC_EXTRACTOR: "1"
 
+            # uncomment to send requests of some services through a proxy
+            # (http, https, socks4 or socks5), read docs/api-env-variables.md#service_proxies
+            # SERVICE_PROXIES: "youtube=socks5://user:password@10.0.0.3:1080"
+
             # see /docs/run-an-instance.md for more variables that you can use here
 
         labels:
