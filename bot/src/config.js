@@ -40,6 +40,8 @@ export const loadConfig = (env = process.env) => {
         adminIds: idList(env.ADMIN_IDS),
         // where the database is kept
         dataDir: env.DATA_DIR || "data",
+        // the database is sent to the admins every day at this hour (server time), -1 turns it off
+        backupHour: env.BACKUP_HOUR === undefined || env.BACKUP_HOUR === "" ? 4 : Number(env.BACKUP_HOUR),
         tempDir: env.TEMP_DIR || os.tmpdir(),
     };
 }

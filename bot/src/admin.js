@@ -3,10 +3,8 @@
 
 import { format, LANGUAGES } from "./messages.js";
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// telegram allows about 30 messages per second, broadcasts stay below that
-const BROADCAST_DELAY = 40;
+// messages of a broadcast that are on their way at the same time
+const BROADCAST_WORKERS = 10;
 
 const button = (text, data) => ({ text, callback_data: data });
 
@@ -15,15 +13,19 @@ export class Admin {
     #store;
     #botId;
     #isAdmin;
+    #backup;
+    #defaultCaption;
     // what an admin is asked for: { type, ... }
     #pending = new Map();
     #broadcasting = false;
 
-    constructor({ telegram, store, botId, isAdmin }) {
+    constructor({ telegram, store, botId, isAdmin, backup, defaultCaption }) {
         this.#telegram = telegram;
         this.#store = store;
         this.#botId = botId;
         this.#isAdmin = isAdmin;
+        this.#backup = backup;
+        this.#defaultCaption = defaultCaption ?? (() => "");
     }
 
     get broadcasting() {
@@ -40,15 +42,36 @@ export class Admin {
 
     #menu(t) {
         const maintenance = this.#store.getSetting("maintenance", false);
+        const groups = this.#store.getSetting("groups", false);
         return {
             inline_keyboard: [
                 [button(t.admin.stats, "a:stats"), button(t.admin.broadcast, "a:bc")],
                 [button(t.admin.channels, "a:ch"), button(t.admin.welcome, "a:wl")],
+                [button(t.admin.quota, "a:qt"), button(t.admin.vip, "a:vip")],
+                [button(t.admin.caption, "a:cp"), button(t.admin.users, "a:ban")],
                 [
-                    button(t.admin.users, "a:ban"),
+                    button(groups ? t.admin.groupsOn : t.admin.groupsOff, "a:gr"),
                     button(maintenance ? t.admin.maintenanceOn : t.admin.maintenanceOff, "a:mt"),
                 ],
+                [button(t.admin.backup, "a:bk")],
             ],
+        };
+    }
+
+    #quotaView(t) {
+        const daily = this.#store.getSetting("quota.daily", 0);
+        return {
+            text: format(t.admin.quotaText, {
+                daily: daily || t.admin.quotaUnlimited,
+                perInvite: this.#store.getSetting("quota.perInvite", 5),
+                vip: this.#store.stats().vip,
+            }),
+            markup: {
+                inline_keyboard: [
+                    [button(t.admin.quotaEditDaily, "a:qt:daily"), button(t.admin.quotaEditInvite, "a:qt:inv")],
+                    [button(t.admin.back, "a:menu")],
+                ],
+            },
         };
     }
 
@@ -148,6 +171,51 @@ export class Admin {
             case "ban":
                 this.#pending.set(adminId, { type: "ban" });
                 return this.#edit(query, t.admin.usersPrompt, this.#cancelButton(t));
+
+            case "vip":
+                this.#pending.set(adminId, { type: "vip" });
+                return this.#edit(query, t.admin.vipPrompt, this.#cancelButton(t));
+
+            case "gr": {
+                const groups = !this.#store.getSetting("groups", false);
+                this.#store.setSetting("groups", groups);
+                return this.#edit(
+                    query,
+                    `${t.admin.title}\n\n${format(t.admin.groupsToggled, { state: groups ? t.admin.on : t.admin.off })}`,
+                    this.#menu(t),
+                );
+            }
+
+            case "cp": {
+                this.#pending.set(adminId, { type: "caption" });
+                const current = this.#store.getSetting("caption") ?? this.#defaultCaption();
+                return this.#edit(
+                    query,
+                    format(t.admin.captionText, { current: current || t.admin.captionNone }),
+                    this.#cancelButton(t),
+                );
+            }
+
+            case "qt": {
+                if (args[0] === "daily" || args[0] === "inv") {
+                    this.#pending.set(adminId, { type: args[0] === "daily" ? "quota.daily" : "quota.perInvite" });
+                    return this.#edit(
+                        query,
+                        args[0] === "daily" ? t.admin.quotaDailyPrompt : t.admin.quotaInvitePrompt,
+                        this.#cancelButton(t),
+                    );
+                }
+                const { text, markup } = this.#quotaView(t);
+                return this.#edit(query, text, markup);
+            }
+
+            case "bk": {
+                const sent = await this.#backup?.().catch(() => 0);
+                if (!sent) {
+                    return this.#edit(query, t.admin.backupFailed, this.#backButton(t));
+                }
+                return;
+            }
 
             case "wl": {
                 if (args[0] === "fa" || args[0] === "en") {
@@ -251,6 +319,42 @@ export class Admin {
                 return reply(format(unban ? t.admin.userUnbanned : t.admin.userBanned, { id: userId }), this.#backButton(t));
             }
 
+            case "vip": {
+                const match = message.text?.trim().match(/^(-?)(\d+)$/);
+                if (!match) return reply(t.admin.userInvalid, this.#cancelButton(t));
+
+                const [ , remove, id ] = match;
+                if (!this.#store.setVip(Number(id), !remove)) {
+                    return reply(t.admin.userNotFound, this.#cancelButton(t));
+                }
+
+                this.#pending.delete(adminId);
+                return reply(format(remove ? t.admin.vipRemoved : t.admin.vipAdded, { id }), this.#backButton(t));
+            }
+
+            case "caption": {
+                const text = message.text?.trim();
+                if (!text) return reply(t.admin.captionText, this.#cancelButton(t));
+
+                this.#pending.delete(adminId);
+                // "-" turns the caption off, telegram allows up to 1024 characters
+                this.#store.setSetting("caption", text === "-" ? "" : text.slice(0, 1000));
+                return reply(t.admin.captionSaved, this.#backButton(t));
+            }
+
+            case "quota.daily":
+            case "quota.perInvite": {
+                const value = Number(message.text?.trim());
+                if (!Number.isSafeInteger(value) || value < 0) {
+                    return reply(t.admin.numberInvalid, this.#cancelButton(t));
+                }
+
+                this.#pending.delete(adminId);
+                this.#store.setSetting(pending.type, value);
+                const view = this.#quotaView(t);
+                return reply(`${t.admin.quotaSaved}\n\n${view.text}`, view.markup);
+            }
+
             case "channel": {
                 const result = await this.#addChannel(message, t);
                 if (result.error) return reply(result.error, this.#cancelButton(t));
@@ -323,43 +427,43 @@ export class Admin {
 
     async #sendToAll(chatId, progressMessageId, fromChatId, messageId, t) {
         const targets = this.#store.broadcastTargets();
-        let sent = 0, blocked = 0, failed = 0, lastUpdate = 0;
+        let sent = 0, blocked = 0, failed = 0, done = 0, lastUpdate = 0;
 
-        const progress = (done) => this.#telegram.editMessageText(
+        const progress = () => this.#telegram.editMessageText(
             chatId, progressMessageId,
             format(t.admin.broadcastRunning, { done, total: targets.length }),
         ).catch(() => {});
 
-        await progress(0);
+        await progress();
 
-        for (const [i, userId] of targets.entries()) {
-            for (let attempt = 0; attempt < 3; attempt++) {
-                try {
-                    await this.#telegram.copyMessage(userId, fromChatId, messageId);
-                    sent++;
-                    break;
-                } catch (e) {
-                    if (e.code === 429 && e.retryAfter) {
-                        await sleep(e.retryAfter * 1000);
-                        continue;
-                    }
-                    if (e.code === 403) {
-                        // the user blocked the bot or deleted their account
-                        this.#store.setBlocked(userId, true);
-                        blocked++;
-                    } else {
-                        failed++;
-                    }
-                    break;
+        // the limiter paces the messages (users' own messages go first),
+        // a few are sent at the same time so it can use its whole budget
+        const sendTo = async (userId) => {
+            try {
+                await this.#telegram.copyMessage(userId, fromChatId, messageId, {}, { priority: "low" });
+                sent++;
+            } catch (e) {
+                if (e.code === 403) {
+                    // the user blocked the bot or deleted their account
+                    this.#store.setBlocked(userId, true);
+                    blocked++;
+                } else {
+                    failed++;
                 }
             }
 
+            done++;
             if (Date.now() - lastUpdate > 3000) {
                 lastUpdate = Date.now();
-                await progress(i + 1);
+                progress();
             }
-            await sleep(BROADCAST_DELAY);
-        }
+        };
+
+        const queue = [...targets];
+        const worker = async () => {
+            while (queue.length) await sendTo(queue.shift());
+        };
+        await Promise.all(Array.from({ length: BROADCAST_WORKERS }, worker));
 
         return { sent, blocked, failed };
     }

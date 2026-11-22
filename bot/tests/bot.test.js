@@ -4,7 +4,7 @@ import http from "node:http";
 import os from "node:os";
 import fs from "node:fs";
 
-import { Bot, extractLink, serviceOf } from "../src/bot.js";
+import { Bot, extractLink, serviceOf, cacheKey } from "../src/bot.js";
 import { Telegram } from "../src/telegram.js";
 import { FetchrClient } from "../src/fetchr.js";
 import { Store } from "../src/store.js";
@@ -75,6 +75,29 @@ const telegramServer = http.createServer(async (req, res) => {
         case "copyMessage":
             if (blockedUsers.has(params.chat_id)) return fail(403, "Forbidden: bot was blocked by the user");
             return ok({ message_id: ++messageId });
+        case "sendVideo":
+        case "sendAudio":
+        case "sendAnimation":
+        case "sendDocument": {
+            const kind = method.slice(4).toLowerCase();
+            const file = params[kind];
+            // a file id that was sent before, or a new one for an upload
+            const fileId = typeof file === "string" ? file : `${kind}-${++messageId}`;
+            return ok({ message_id: ++messageId, [kind]: { file_id: fileId } });
+        }
+        case "sendPhoto": {
+            const fileId = typeof params.photo === "string" ? params.photo : `photo-${++messageId}`;
+            return ok({ message_id: ++messageId, photo: [{ file_id: `${fileId}-small` }, { file_id: fileId }] });
+        }
+        case "sendMediaGroup": {
+            const media = typeof params.media === "string" ? JSON.parse(params.media) : params.media;
+            return ok(media.map(item => {
+                const fileId = item.media.startsWith("attach://") ? `${item.type}-${++messageId}` : item.media;
+                return item.type === "photo"
+                    ? { message_id: ++messageId, photo: [{ file_id: fileId }] }
+                    : { message_id: ++messageId, [item.type]: { file_id: fileId } };
+            }));
+        }
         default:
             return ok({ message_id: ++messageId });
     }
@@ -98,8 +121,11 @@ const fetchrServer = http.createServer(async (req, res) => {
             photo2: ["image/jpeg", undefined, "photo two"],
             big: ["video/mp4", 'attachment; filename="big.mp4"', "x".repeat(5000)],
             song: ["audio/mpeg", "attachment; filename*=UTF-8''%D8%A2%D9%87%D9%86%DA%AF.mp3", "audio bytes"],
+            slow: ["video/mp4", 'attachment; filename="slow.mp4"', "slow video"],
         };
-        const [type, disposition, content] = files[url.searchParams.get("id")];
+        const id = url.searchParams.get("id");
+        if (id === "slow") await new Promise(r => setTimeout(r, 300));
+        const [type, disposition, content] = files[id];
         res.setHeader("content-type", type);
         if (disposition) res.setHeader("content-disposition", disposition);
         return res.end(content);
@@ -121,6 +147,8 @@ const fetchrServer = http.createServer(async (req, res) => {
             { type: "photo", url: tunnel("photo1") },
             { type: "photo", url: tunnel("photo2") },
         ]};
+    } else if (request.url.startsWith("https://slow.example/")) {
+        response = { status: "tunnel", url: tunnel("slow"), filename: "slow.mp4" };
     } else if (request.url === "https://big.example/1") {
         response = { status: "tunnel", url: tunnel("big"), filename: "big.mp4" };
     } else {
@@ -134,6 +162,8 @@ const fetchrServer = http.createServer(async (req, res) => {
 let bot;
 let config;
 let store;
+let telegram;
+let fetchr;
 
 before(async () => {
     const telegramUrl = await listen(telegramServer);
@@ -150,9 +180,15 @@ before(async () => {
         ADMIN_IDS: String(ADMIN),
     });
     config.maxFileSize = 1000;
+    config.botUsername = "fetchr_test_bot";
 
-    const telegram = new Telegram({ token: config.token, apiUrl: config.telegramApi });
-    const fetchr = new FetchrClient({ apiUrl: config.fetchrApi, apiKey: config.fetchrApiKey });
+    // the real limits would make the tests slow, they're tested in limiter.test.js
+    telegram = new Telegram({
+        token: config.token,
+        apiUrl: config.telegramApi,
+        limits: { perSecond: 10000, privateInterval: 0, groupInterval: 0 },
+    });
+    fetchr = new FetchrClient({ apiUrl: config.fetchrApi, apiKey: config.fetchrApiKey });
     await fetchr.init();
 
     store = new Store(":memory:");
@@ -231,12 +267,12 @@ test("new users choose a language, then get the welcome message", async () => {
     assert.ok(texts().includes(fa.languageSet));
     assert.equal(lastText(), fa.welcome);
     // the welcome message comes with the main keyboard
-    assert.deepEqual(lastMarkup().keyboard.flat().map(b => b.text), [fa.buttons.help, fa.buttons.settings, fa.buttons.language]);
+    assert.deepEqual(lastMarkup().keyboard.flat().map(b => b.text), [fa.buttons.help, fa.buttons.settings, fa.buttons.invite, fa.buttons.language]);
 
     // keyboard buttons work in both languages
     calls.length = 0;
     await send(user, fa.buttons.help);
-    assert.equal(lastText(), format(fa.help, { limit: 0 }));
+    assert.equal(lastText(), format(fa.help, { limit: 0, bot: "fetchr_test_bot" }));
 });
 
 test("the quality is asked for, then the file is sent", async () => {
@@ -286,11 +322,12 @@ test("canceled and expired quality questions", async () => {
     assert.equal(lastText(), en.quality.canceled);
     assert.equal(requests.length, 0);
 
-    // someone else's (or an old) question
+    // someone else's question is left alone, an old one expires
     await send(user, "https://video.example/5");
     const choice = buttons().find(b => b.text.includes("720p")).callback_data;
+    calls.length = 0;
     await press(newUser(), choice);
-    assert.equal(lastText(), en.quality.expired);
+    assert.deepEqual(calls.map(c => c.method), ["answerCallbackQuery"]);
     await press(user, "q:unknown:720");
     assert.equal(lastText(), en.quality.expired);
     assert.equal(requests.length, 0);
@@ -323,8 +360,9 @@ test("items of a picker are sent as one album", async () => {
     const [ album, ...rest ] = uploads();
     assert.equal(rest.length, 0);
     assert.equal(album.method, "sendMediaGroup");
+    // the caption goes under the first item
     assert.deepEqual(JSON.parse(album.params.media), [
-        { type: "photo", media: "attach://file0" },
+        { type: "photo", media: "attach://file0", caption: "📥 @fetchr_test_bot" },
         { type: "photo", media: "attach://file1" },
     ]);
     assert.deepEqual([album.params.file0.content, album.params.file1.content], ["photo one", "photo two"]);
@@ -567,6 +605,260 @@ test("/cancel leaves an admin question", async () => {
     await send(ADMIN, "/cancel");
     assert.equal(lastText(), en.admin.canceled);
     assert.equal(bot.admin.isWaiting(ADMIN), false);
+});
+
+// ---- file cache, caption, queue
+
+test("files that were sent are sent again from telegram, without downloading", async () => {
+    // this test sends more links than the per-user limit allows
+    config.userRateLimit = 100;
+    const first = newUser("en", "720");
+    await send(first, "https://video.example/cached");
+    assert.equal(requests.length, 1);
+    const fileId = uploads()[0] && calls.find(c => c.method === "sendVideo") && store.getFiles(
+        cacheKey("https://video.example/cached", "auto", "720"), Infinity,
+    )?.[0]?.fileId;
+    assert.match(fileId, /^video-/);
+
+    // someone else sends the same link with the same quality
+    calls.length = 0;
+    requests.length = 0;
+    const second = newUser("en", "720");
+    await send(second, "https://video.example/cached");
+
+    assert.equal(requests.length, 0);
+    const [ upload ] = uploads();
+    assert.equal(upload.method, "sendVideo");
+    assert.equal(upload.params.video, fileId);
+    assert.equal(upload.params.caption, "📥 @fetchr_test_bot");
+    assert.equal(calls.at(-1).method, "deleteMessage");
+    assert.equal(store.usageToday(second), 1);
+
+    // another quality is a different file
+    calls.length = 0;
+    store.setQuality(second, "480");
+    await send(second, "https://video.example/cached");
+    assert.equal(requests.length, 1);
+
+    // albums too
+    store.deleteFiles(cacheKey("https://photos.example/1", "auto", "720"));
+    requests.length = 0;
+    await send(first, "https://photos.example/1");
+    assert.equal(requests.length, 1);
+    calls.length = 0;
+    await send(newUser("en", "720"), "https://photos.example/1");
+    assert.equal(requests.length, 1);
+    const album = uploads()[0];
+    assert.equal(album.method, "sendMediaGroup");
+    assert.ok(album.params.media.every(item => item.media.startsWith("photo-")));
+    config.userRateLimit = 3;
+});
+
+test("the caption under files can be changed or turned off", async () => {
+    store.setLanguage(ADMIN, "en");
+    const user = newUser("en", "720");
+
+    await press(ADMIN, "a:cp");
+    assert.ok(lastText().includes("📥 @fetchr_test_bot"));
+    await send(ADMIN, "🎬 my channel: @example");
+    assert.equal(lastText(), en.admin.captionSaved);
+
+    calls.length = 0;
+    await send(user, "https://video.example/caption-1");
+    assert.equal(uploads()[0].params.caption, "🎬 my channel: @example");
+
+    await press(ADMIN, "a:cp");
+    await send(ADMIN, "-");
+    calls.length = 0;
+    await send(user, "https://video.example/caption-2");
+    assert.equal(uploads()[0].params.caption, undefined);
+
+    store.setSetting("caption", null);
+});
+
+test("waiting users see their place in the queue", async () => {
+    const single = new Bot({ config: { ...config, concurrency: 1 }, telegram, fetchr, store });
+    const users = [newUser("fa", "720"), newUser("fa", "720"), newUser("fa", "720")];
+
+    const sendTo = (user, i) => single.handleUpdate({ update_id: 1, message: {
+        message_id: 1, text: `https://slow.example/${i}`,
+        chat: { id: user, type: "private" }, from: { id: user },
+    }});
+
+    await Promise.all(users.map(sendTo));
+
+    const queued = texts().filter(text => text.startsWith("⏳") && text !== fa.working);
+    assert.ok(queued.includes(format(fa.queued, { position: 1 })));
+    assert.ok(queued.includes(format(fa.queued, { position: 2 })));
+    assert.equal(uploads().length, 3);
+});
+
+// ---- invites, quota, vip
+
+test("invite links", async () => {
+    const inviter = newUser("fa");
+    await send(inviter, "/invite");
+    assert.ok(lastText().includes(`https://t.me/fetchr_test_bot?start=ref_${inviter}`));
+    assert.ok(lastText().includes(fa.invite.unlimited));
+
+    // a new user opens the link: the inviter is told
+    const friend = nextUser++;
+    calls.length = 0;
+    await send(friend, `/start ref_${inviter}`);
+    assert.equal(store.getUser(friend).invited_by, inviter);
+    assert.equal(store.countInvites(inviter), 1);
+    const notice = calls.find(c => c.method === "sendMessage" && c.params.chat_id === inviter);
+    assert.equal(notice.params.text, format(fa.invite.joined, { bonus: "" }));
+
+    // only new users count, and nobody can invite themselves
+    await send(friend, `/start ref_${inviter}`);
+    const existing = newUser();
+    await send(existing, `/start ref_${inviter}`);
+    const self = nextUser++;
+    await send(self, `/start ref_${self}`);
+    assert.equal(store.countInvites(inviter), 1);
+    assert.equal(store.getUser(self).invited_by, null);
+});
+
+test("daily quota, more downloads for invites, vip users", async () => {
+    store.setLanguage(ADMIN, "en");
+    const user = newUser("en", "720");
+    config.userRateLimit = 100;
+    try {
+        await press(ADMIN, "a:qt:daily");
+        await send(ADMIN, "abc");
+        assert.equal(lastText(), en.admin.numberInvalid);
+        await send(ADMIN, "1");
+        await press(ADMIN, "a:qt:inv");
+        await send(ADMIN, "2");
+        assert.equal(store.getSetting("quota.daily"), 1);
+        assert.equal(store.getSetting("quota.perInvite"), 2);
+
+        await send(user, "https://video.example/quota-1");
+        calls.length = 0;
+        await send(user, "https://video.example/quota-2");
+        assert.equal(lastText(), format(en.quota.exceeded, { limit: 1 }));
+        assert.equal(uploads().length, 0);
+
+        // a friend joins: 2 more downloads
+        await send(nextUser++, `/start ref_${user}`);
+        const notice = calls.find(c => c.params.chat_id === user && c.params.text?.startsWith("🎉"));
+        assert.equal(notice.params.text, format(en.invite.joined, { bonus: format(en.invite.joinedBonus, { perInvite: 2 }) }));
+
+        calls.length = 0;
+        await send(user, "https://video.example/quota-3");
+        assert.equal(uploads().length, 1);
+        await send(user, "/invite");
+        assert.ok(lastText().includes("2 of 3"));
+
+        // vip users have no limit
+        await send(user, "https://video.example/quota-4");
+        await send(user, "https://video.example/quota-5");
+        assert.equal(lastText(), format(en.quota.exceeded, { limit: 3 }));
+
+        await press(ADMIN, "a:vip");
+        await send(ADMIN, String(user));
+        assert.equal(lastText(), format(en.admin.vipAdded, { id: user }));
+        calls.length = 0;
+        await send(user, "https://video.example/quota-5");
+        assert.equal(uploads().length, 1);
+
+        await press(ADMIN, "a:vip");
+        await send(ADMIN, `-${user}`);
+        assert.equal(store.getUser(user).vip, 0);
+    } finally {
+        store.setSetting("quota.daily", null);
+        store.setSetting("quota.perInvite", null);
+        config.userRateLimit = 3;
+    }
+});
+
+// ---- inline mode and groups
+
+test("inline mode offers files that were sent before", async () => {
+    const user = newUser("en", "720");
+    const inline = (query) => bot.handleUpdate({ update_id: 1, inline_query: {
+        id: "iq", from: { id: user }, query,
+    }});
+    const lastAnswer = () => calls.filter(c => c.method === "answerInlineQuery").at(-1).params;
+
+    await inline("hello");
+    assert.equal(lastAnswer().button.text, en.inline.hint);
+
+    // not sent before: the button leads to the bot, which downloads it
+    await inline("https://video.example/inline");
+    assert.deepEqual(lastAnswer().results, []);
+    const parameter = lastAnswer().button.start_parameter;
+    assert.match(parameter, /^dl_/);
+
+    calls.length = 0;
+    await send(user, `/start ${parameter}`);
+    assert.equal(uploads().length, 1);
+
+    await inline("https://video.example/inline");
+    const [ result ] = lastAnswer().results;
+    assert.equal(result.type, "video");
+    assert.match(result.video_file_id, /^video-/);
+    assert.equal(result.title, "clip");
+    assert.equal(result.caption, "📥 @fetchr_test_bot");
+});
+
+test("groups: only /dl, only when turned on", async () => {
+    store.setLanguage(ADMIN, "en");
+    const user = newUser("en", "720");
+    const group = -777;
+    const inGroup = (text, extra = {}) => bot.handleUpdate({ update_id: 1, message: {
+        message_id: 1, text, chat: { id: group, type: "supergroup" },
+        from: { id: user }, ...extra,
+    }});
+
+    calls.length = 0;
+    await inGroup("/dl https://video.example/group");
+    assert.equal(calls.length, 0);
+
+    await press(ADMIN, "a:gr");
+    assert.equal(store.getSetting("groups"), true);
+    try {
+        calls.length = 0;
+        // links without the command are ignored
+        await inGroup("https://video.example/group");
+        assert.equal(calls.length, 0);
+
+        await inGroup("/dl https://video.example/group");
+        const [ upload ] = uploads();
+        assert.equal(upload.method, "sendVideo");
+        assert.equal(upload.params.chat_id, String(group));
+
+        // a reply to a message with a link
+        calls.length = 0;
+        await inGroup("/dl@fetchr_test_bot", { reply_to_message: { text: "https://video.example/group-2" } });
+        assert.equal(uploads().length, 1);
+
+        // other bots' commands, and /dl without a link
+        calls.length = 0;
+        await inGroup("/dl@another_bot https://video.example/group");
+        assert.equal(calls.length, 0);
+        await inGroup("/dl");
+        assert.equal(lastText(), en.group.usage);
+    } finally {
+        await press(ADMIN, "a:gr");
+    }
+});
+
+// ---- backups
+
+test("backups of the database are sent to the admins", async () => {
+    calls.length = 0;
+    await press(ADMIN, "a:bk");
+
+    const backup = calls.find(c => c.method === "sendDocument");
+    assert.equal(backup.params.chat_id, String(ADMIN));
+    assert.match(backup.params.document.filename, /^fetchr-bot-\d{4}-\d{2}-\d{2}\.db$/);
+    assert.ok(backup.params.document.content.startsWith("SQLite format 3"));
+    assert.match(backup.params.caption, /\d+/);
+
+    // the temporary copy is removed
+    assert.deepEqual(fs.readdirSync(os.tmpdir()).filter(f => f.startsWith("fetchr-bot-backup")), []);
 });
 
 // ---- helpers

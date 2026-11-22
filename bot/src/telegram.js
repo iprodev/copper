@@ -1,4 +1,11 @@
 import fs from "node:fs";
+import { Limiter } from "./limiter.js";
+
+// methods that send or change messages go through the limiter
+const LIMITED = new Set([
+    "sendMessage", "editMessageText", "deleteMessage", "copyMessage", "forwardMessage",
+    "sendPhoto", "sendVideo", "sendAudio", "sendDocument", "sendAnimation", "sendMediaGroup",
+]);
 
 export class TelegramError extends Error {
     constructor(method, response) {
@@ -14,12 +21,28 @@ export class Telegram {
     #base;
     #fetch;
 
-    constructor({ token, apiUrl = "https://api.telegram.org", fetch = globalThis.fetch }) {
+    constructor({ token, apiUrl = "https://api.telegram.org", fetch = globalThis.fetch, limits }) {
         this.#base = `${apiUrl}/bot${token}`;
         this.#fetch = fetch;
+        this.limiter = new Limiter(limits);
     }
 
-    async call(method, params = {}, { signal } = {}) {
+    // priority "low" is for broadcasts. a key replaces a waiting request
+    // with the same key (used for edits of the same message).
+    call(method, params = {}, { signal, priority, key } = {}) {
+        if (!LIMITED.has(method)) {
+            return this.#request(method, params, signal);
+        }
+
+        const chatId = params instanceof FormData ? params.get("chat_id") : params.chat_id;
+        return this.limiter.schedule(
+            String(chatId),
+            () => this.#request(method, params, signal),
+            { priority, key },
+        );
+    }
+
+    async #request(method, params, signal) {
         const isForm = params instanceof FormData;
 
         // errors never include the url, it contains the bot token
@@ -46,7 +69,7 @@ export class Telegram {
         return this.call("getUpdates", {
             offset,
             timeout,
-            allowed_updates: ["message", "callback_query", "my_chat_member"],
+            allowed_updates: ["message", "callback_query", "my_chat_member", "inline_query"],
         }, { signal });
     }
 
@@ -66,7 +89,7 @@ export class Telegram {
             text,
             link_preview_options: { is_disabled: true },
             ...extra,
-        });
+        }, { key: `edit:${chatId}:${messageId}` });
     }
 
     answerCallbackQuery(id, text, showAlert = false) {
@@ -77,13 +100,13 @@ export class Telegram {
     }
 
     // sends a copy of any message (text, media, ...), used for broadcasts
-    copyMessage(chatId, fromChatId, messageId, extra = {}) {
+    copyMessage(chatId, fromChatId, messageId, extra = {}, { priority } = {}) {
         return this.call("copyMessage", {
             chat_id: chatId,
             from_chat_id: fromChatId,
             message_id: messageId,
             ...extra,
-        });
+        }, { priority });
     }
 
     getChat(chatId) {
@@ -106,8 +129,18 @@ export class Telegram {
         return this.call("sendChatAction", { chat_id: chatId, action });
     }
 
-    // uploads a local file, e.g. sendFile("sendVideo", "video", ...)
+    answerInlineQuery(id, results, extra = {}) {
+        return this.call("answerInlineQuery", { inline_query_id: id, results, ...extra });
+    }
+
+    // sends a file: a local one (path) is uploaded, one that telegram
+    // already has (fileId) is sent again without uploading.
+    // e.g. sendFile("sendVideo", "video", chatId, { path, filename, type })
     async sendFile(method, field, chatId, file, extra = {}) {
+        if (file.fileId) {
+            return this.call(method, { chat_id: chatId, [field]: file.fileId, ...extra });
+        }
+
         const form = new FormData();
         form.append("chat_id", String(chatId));
 
@@ -122,17 +155,25 @@ export class Telegram {
         return this.call(method, form);
     }
 
-    // sends up to 10 photos and videos as one album
-    async sendMediaGroup(chatId, files) {
+    // sends up to 10 photos and videos as one album, the caption goes under the first
+    async sendMediaGroup(chatId, files, caption) {
+        const media = files.map((file, i) => ({
+            type: file.kind,
+            media: file.fileId ?? `attach://file${i}`,
+            ...(file.kind === "video" ? { supports_streaming: true } : {}),
+            ...(i === 0 && caption ? { caption } : {}),
+        }));
+
+        if (files.every(file => file.fileId)) {
+            return this.call("sendMediaGroup", { chat_id: chatId, media });
+        }
+
         const form = new FormData();
         form.append("chat_id", String(chatId));
-        form.append("media", JSON.stringify(files.map((file, i) => ({
-            type: file.kind,
-            media: `attach://file${i}`,
-            ...(file.kind === "video" ? { supports_streaming: true } : {}),
-        }))));
+        form.append("media", JSON.stringify(media));
 
         for (const [i, file] of files.entries()) {
+            if (file.fileId) continue;
             const blob = await fs.openAsBlob(file.path, { type: file.type || "application/octet-stream" });
             form.append(`file${i}`, blob, file.filename);
         }

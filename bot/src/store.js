@@ -41,7 +41,37 @@ export class Store {
                 count INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (day, service)
             );
+
+            -- downloads of each user per day, for the daily quota
+            CREATE TABLE IF NOT EXISTS usage (
+                user_id INTEGER NOT NULL,
+                day TEXT NOT NULL,
+                count INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (user_id, day)
+            );
+
+            -- telegram file ids of files that were already sent, by a hash
+            -- of the link and the options (the link itself isn't stored)
+            CREATE TABLE IF NOT EXISTS files (
+                key TEXT PRIMARY KEY,
+                items TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            );
         `);
+
+        // columns added after the first version
+        const columns = this.#db.prepare("PRAGMA table_info(users)").all().map(column => column.name);
+        const addColumn = (name, definition) => {
+            if (!columns.includes(name)) {
+                this.#db.exec(`ALTER TABLE users ADD COLUMN ${name} ${definition}`);
+            }
+        };
+        // who invited the user
+        addColumn("invited_by", "INTEGER");
+        // vip users have no daily quota
+        addColumn("vip", "INTEGER NOT NULL DEFAULT 0");
+
+        this.#db.exec("CREATE INDEX IF NOT EXISTS users_invited_by ON users (invited_by)");
     }
 
     // returns the user, creating it on first contact
@@ -81,6 +111,64 @@ export class Store {
         return result.changes > 0;
     }
 
+    // returns false if the user has never used the bot
+    setVip(id, vip) {
+        const result = this.#db.prepare("UPDATE users SET vip = ? WHERE id = ?").run(vip ? 1 : 0, id);
+        return result.changes > 0;
+    }
+
+    // only for new users, and never by themselves
+    setInvitedBy(id, inviterId) {
+        if (id === inviterId || !this.getUser(inviterId)) return false;
+        const result = this.#db.prepare("UPDATE users SET invited_by = ? WHERE id = ? AND invited_by IS NULL").run(inviterId, id);
+        return result.changes > 0;
+    }
+
+    countInvites(id) {
+        return Number(this.#db.prepare("SELECT count(*) n FROM users WHERE invited_by = ?").get(id).n);
+    }
+
+    usageToday(id) {
+        const row = this.#db.prepare("SELECT count FROM usage WHERE user_id = ? AND day = ?").get(id, today());
+        return Number(row?.count ?? 0);
+    }
+
+    countUsage(id) {
+        this.#db.prepare(`
+            INSERT INTO usage (user_id, day, count) VALUES (?, ?, 1)
+            ON CONFLICT (user_id, day) DO UPDATE SET count = count + 1
+        `).run(id, today());
+
+        // older days aren't needed
+        this.#db.prepare("DELETE FROM usage WHERE day < ?").run(daysAgo(7));
+    }
+
+    getFiles(key, maxAge) {
+        const row = this.#db.prepare("SELECT items, created_at FROM files WHERE key = ?").get(key);
+        if (!row) return;
+        if (Date.now() - row.created_at > maxAge) {
+            this.deleteFiles(key);
+            return;
+        }
+        return JSON.parse(row.items);
+    }
+
+    setFiles(key, items) {
+        this.#db.prepare(`
+            INSERT INTO files (key, items, created_at) VALUES (?, ?, ?)
+            ON CONFLICT (key) DO UPDATE SET items = excluded.items, created_at = excluded.created_at
+        `).run(key, JSON.stringify(items), Date.now());
+    }
+
+    deleteFiles(key) {
+        this.#db.prepare("DELETE FROM files WHERE key = ?").run(key);
+    }
+
+    // a consistent copy of the database, for backups
+    backupTo(path) {
+        this.#db.prepare("VACUUM INTO ?").run(path);
+    }
+
     // users that can receive broadcasts
     broadcastTargets() {
         return this.#db.prepare("SELECT id FROM users WHERE blocked = 0 AND banned = 0 ORDER BY id")
@@ -103,6 +191,9 @@ export class Store {
             active: one("SELECT count(*) n FROM users WHERE blocked = 0 AND banned = 0"),
             blocked: one("SELECT count(*) n FROM users WHERE blocked = 1"),
             banned: one("SELECT count(*) n FROM users WHERE banned = 1"),
+            vip: one("SELECT count(*) n FROM users WHERE vip = 1"),
+            invited: one("SELECT count(*) n FROM users WHERE invited_by IS NOT NULL"),
+            cachedFiles: one("SELECT count(*) n FROM files"),
             newToday: one("SELECT count(*) n FROM users WHERE joined_at >= ?", dayStart),
             newWeek: one("SELECT count(*) n FROM users WHERE joined_at >= ?", dayStart - 6 * 86400000),
             activeToday: one("SELECT count(*) n FROM users WHERE last_seen >= ?", dayStart),
