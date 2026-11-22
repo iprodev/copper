@@ -24,6 +24,56 @@ const getBestVariant = async (masterUrl) => {
     } catch {}
 }
 
+// pin data from pinterest's json api is the same for every network,
+// unlike the html page, which comes in several variants
+const fromApi = async (id) => {
+    const data = JSON.stringify({
+        options: { id, field_set_key: "unauth_react_main_pin" },
+        context: {},
+    });
+
+    const json = await fetch(
+        `https://www.pinterest.com/resource/PinResource/get/?data=${encodeURIComponent(data)}`,
+        {
+            headers: {
+                "user-agent": genericUserAgent,
+                "x-pinterest-pws-handler": "www/pin/[id].js",
+            }
+        }
+    ).then(r => r.status === 200 ? r.json() : undefined).catch(() => {});
+
+    const pin = json?.resource_response?.data;
+    if (!pin) return;
+
+    const videoLists = [
+        pin.videos?.video_list,
+        ...(pin.story_pin_data?.pages ?? []).flatMap(
+            page => (page?.blocks ?? []).map(block => block?.video?.video_list)
+        ),
+    ].filter(Boolean);
+
+    const mp4 = videoLists
+        .flatMap(list => Object.values(list))
+        .filter(v => v?.url?.endsWith(".mp4"))
+        .sort((a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0))[0];
+
+    if (mp4) return {
+        urls: mp4.url,
+        filename: `pinterest_${id}.mp4`,
+        audioFilename: `pinterest_${id}_audio`
+    }
+
+    // a video without an mp4 version is left to the html fallback
+    if (videoLists.length) return;
+
+    const image = pin.images?.orig?.url;
+    if (image?.endsWith(".jpg") || image?.endsWith(".gif") || image?.endsWith(".png")) return {
+        urls: image,
+        isPhoto: true,
+        filename: `pinterest_${id}.${image.split(".").pop()}`
+    }
+}
+
 export default async function(o) {
     let id = o.id;
 
@@ -34,6 +84,9 @@ export default async function(o) {
 
     if (id?.includes("--")) id = id.split("--")[1];
     if (!id) return { error: "fetch.fail" };
+
+    const fromJson = await fromApi(id);
+    if (fromJson) return fromJson;
 
     const html = await fetch(`https://www.pinterest.com/pin/${id}/`, {
         headers: { "user-agent": genericUserAgent }
