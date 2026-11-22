@@ -1,7 +1,7 @@
 import UrlPattern from "url-pattern";
 
 export const audioIgnore = new Set(["vk", "ok", "loom"]);
-export const hlsExceptions = new Set(["dailymotion", "vimeo", "rutube", "bsky", "youtube", "loom", "pornhub", "xvideos", "beeg"]);
+export const hlsExceptions = new Set(["dailymotion", "vimeo", "rutube", "bsky", "youtube", "loom", "pornhub", "xvideos", "beeg", "pinterest"]);
 
 // services whose hls files are signed with query params
 // that must be carried over to every relative uri

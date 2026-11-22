@@ -44,7 +44,14 @@ export default async function({ id, quality }) {
     const hlsUrl = playerValue(html, "setVideoHLS");
     const mp4Url = playerValue(html, "setVideoUrlHigh") || playerValue(html, "setVideoUrlLow");
 
-    if (!hlsUrl && !mp4Url) return { error: "fetch.empty" };
+    if (!hlsUrl && !mp4Url) {
+        // in regions with age verification laws, a verification page is
+        // served instead of the player
+        if (/age[\s_-]?verif|verify your age/i.test(html)) {
+            return { error: "content.region" };
+        }
+        return { error: "fetch.empty" };
+    }
 
     const duration = Number(html.match(/<meta property="og:duration" content="(\d+)"/)?.[1]);
     if (duration > env.durationLimit) {
