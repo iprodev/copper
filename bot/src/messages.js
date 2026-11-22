@@ -15,7 +15,9 @@ const fa = {
         "۳. کیفیت را انتخاب کنید تا فایل برایتان فرستاده شود.\n\n" +
         "🎵 برای گرفتن فقط صدا: کیفیت «فقط صدا» را انتخاب کنید، یا بنویسید:\n/audio لینک\n\n" +
         "⚙️ /settings: کیفیت پیش‌فرض، تا هر بار پرسیده نشود\n" +
-        "🌐 /language: تغییر زبان\n\n" +
+        "🌐 /language: تغییر زبان\n" +
+        "🎁 /invite: دعوت دوستان و سهمیه‌ی بیشتر\n\n" +
+        "💬 در هر چتی بنویسید @{{ bot }} و لینک را بگذارید تا فایل‌هایی که قبلاً گرفته شده‌اند را همان‌جا بفرستید.\n\n" +
         "📦 حداکثر حجم هر فایل {{ limit }} مگابایت است. برای ویدیوهای طولانی کیفیت پایین‌تر را انتخاب کنید.\n\n" +
         "🔒 لینک‌هایی که می‌فرستید هیچ‌جا ذخیره نمی‌شوند. فقط شناسه‌ی تلگرام، زبان و تنظیمات شما نگه داشته می‌شود.",
 
@@ -23,6 +25,7 @@ const fa = {
         help: "📖 راهنما",
         settings: "⚙️ تنظیمات",
         language: "🌐 زبان",
+        invite: "🎁 دعوت دوستان",
     },
 
     noLink: "لینکی پیدا نکردم. یک لینک کامل بفرستید (مثلاً https://...).",
@@ -57,6 +60,38 @@ const fa = {
     uploading: "⬆️ در حال ارسال...",
     tooBig: "این فایل برای تلگرام خیلی بزرگ است (حداکثر {{ limit }} مگابایت). کیفیت پایین‌تر یا فقط صدا را امتحان کنید.",
 
+    queued: "⏳ در صف هستید. نفر {{ position }}...",
+    fromCache: "⚡️",
+
+    invite: {
+        title:
+            "🎁 دعوت دوستان\n\n" +
+            "این لینک را برای دوستانتان بفرستید. {{ bonus }}\n\n" +
+            "{{ link }}\n\n" +
+            "👥 دعوت‌شده‌ها: {{ count }}\n" +
+            "📥 دانلود امروز: {{ used }} از {{ limit }}",
+        bonus: "به ازای هر نفر که با لینک شما عضو شود، {{ perInvite }} دانلود به سهمیه‌ی روزانه‌تان اضافه می‌شود.",
+        noBonus: "",
+        unlimited: "نامحدود",
+        joined: "🎉 یک نفر با لینک دعوت شما عضو شد!{{ bonus }}",
+        joinedBonus: " سهمیه‌ی روزانه‌ی شما {{ perInvite }} دانلود بیشتر شد.",
+    },
+
+    quota: {
+        exceeded:
+            "سهمیه‌ی دانلود امروز شما تمام شده ({{ limit }} فایل در روز).\n\n" +
+            "فردا دوباره امتحان کنید، یا با دعوت دوستان سهمیه‌ی بیشتری بگیرید: /invite",
+    },
+
+    group: {
+        usage: "برای دانلود در گروه بنویسید:\n/dl لینک",
+        startPrivate: "📥 دانلود در ربات",
+    },
+
+    inline: {
+        notCached: "📥 این لینک را اول در ربات بفرستید",
+        hint: "📥 لینک یک ویدیو یا پست را بنویسید",
+    },
     errors: {
         unsupported: "این لینک پشتیبانی نمی‌شود. مطمئنید لینک درست را فرستاده‌اید؟",
         disabled: "این سرویس روی این سرور غیرفعال است.",
@@ -87,13 +122,16 @@ const fa = {
             "👥 کاربران: {{ users }}\n" +
             "✅ فعال: {{ active }}\n" +
             "🚫 ربات را بلاک کرده‌اند: {{ blocked }}\n" +
-            "⛔️ مسدود شده: {{ banned }}\n\n" +
+            "⛔️ مسدود شده: {{ banned }}\n" +
+            "⭐️ ویژه: {{ vip }}\n" +
+            "🎁 با دعوت آمده‌اند: {{ invited }}\n\n" +
             "🆕 کاربران جدید امروز: {{ newToday }}\n" +
             "🆕 کاربران جدید ۷ روز اخیر: {{ newWeek }}\n" +
             "🟢 فعال امروز: {{ activeToday }}\n\n" +
             "⬇️ دانلود امروز: {{ downloadsToday }}\n" +
             "⬇️ دانلود ۷ روز اخیر: {{ downloadsWeek }}\n" +
-            "⬇️ کل دانلودها: {{ downloadsTotal }}\n\n" +
+            "⬇️ کل دانلودها: {{ downloadsTotal }}\n" +
+            "⚡️ فایل‌های آماده برای ارسال فوری: {{ cachedFiles }}\n\n" +
             "🔝 سرویس‌های پرکاربرد (۷ روز):\n{{ top }}",
         none: "—",
 
@@ -139,6 +177,39 @@ const fa = {
         maintenanceToggled: "حالت تعمیر {{ state }} شد. در این حالت فقط مدیرها می‌توانند از ربات استفاده کنند.",
         on: "روشن",
         off: "خاموش",
+
+        caption: "✍️ امضای فایل‌ها",
+        captionText: "✍️ امضای زیر فایل‌ها\n\nالان: {{ current }}\n\nمتن جدید را بفرستید، یا «-» برای حذف امضا.",
+        captionNone: "(بدون امضا)",
+        captionSaved: "✅ امضا ذخیره شد.",
+
+        quota: "🎟 سهمیه",
+        quotaText:
+            "🎟 سهمیه‌ی روزانه\n\n" +
+            "سهمیه‌ی هر کاربر در روز: {{ daily }}\n" +
+            "دانلود اضافه برای هر دعوت: {{ perInvite }}\n" +
+            "کاربران ویژه (بدون محدودیت): {{ vip }}",
+        quotaUnlimited: "نامحدود",
+        quotaEditDaily: "✏️ سهمیه‌ی روزانه",
+        quotaEditInvite: "✏️ جایزه‌ی دعوت",
+        quotaDailyPrompt: "تعداد دانلود مجاز هر کاربر در روز را بفرستید (۰ یعنی نامحدود).",
+        quotaInvitePrompt: "تعداد دانلود اضافه به ازای هر دعوت را بفرستید (۰ یعنی بدون جایزه).",
+        quotaSaved: "✅ ذخیره شد.",
+        numberInvalid: "یک عدد بفرستید.",
+
+        vip: "⭐️ کاربر ویژه",
+        vipPrompt: "شناسه‌ی عددی کاربر را بفرستید تا ویژه شود (بدون محدودیت سهمیه). برای برداشتن، قبلش یک منفی بگذارید.",
+        vipAdded: "⭐️ کاربر {{ id }} ویژه شد.",
+        vipRemoved: "کاربر {{ id }} دیگر ویژه نیست.",
+
+        groupsOn: "👥 گروه‌ها: روشن",
+        groupsOff: "👥 گروه‌ها: خاموش",
+        groupsToggled: "کار در گروه‌ها {{ state }} شد. در گروه‌ها با دستور /dl لینک کار می‌کند.",
+
+        backup: "💾 پشتیبان",
+        backupCaption: "💾 پشتیبان ربات fetchr، {{ date }}\n👥 {{ users }} کاربر",
+        backupFailed: "⚠️ ساختن پشتیبان انجام نشد.",
+
     },
 };
 
@@ -157,7 +228,9 @@ const en = {
         "3. pick a quality and the file will be sent to you.\n\n" +
         "🎵 to get just the audio, pick \"audio only\", or send:\n/audio link\n\n" +
         "⚙️ /settings: default quality, so you're not asked every time\n" +
-        "🌐 /language: change the language\n\n" +
+        "🌐 /language: change the language\n" +
+        "🎁 /invite: invite friends for more downloads\n\n" +
+        "💬 in any chat, type @{{ bot }} and a link to send files that were downloaded before right there.\n\n" +
         "📦 files can be up to {{ limit }} MB. pick a lower quality for long videos.\n\n" +
         "🔒 links you send are never stored. only your telegram id, language and settings are kept.",
 
@@ -165,6 +238,7 @@ const en = {
         help: "📖 help",
         settings: "⚙️ settings",
         language: "🌐 language",
+        invite: "🎁 invite friends",
     },
 
     noLink: "i couldn't find a link. send a full link (like https://...).",
@@ -199,6 +273,38 @@ const en = {
     uploading: "⬆️ sending...",
     tooBig: "this file is too big for telegram (max {{ limit }} MB). try a lower quality or just the audio.",
 
+    queued: "⏳ you're in the queue, number {{ position }}...",
+    fromCache: "⚡️",
+
+    invite: {
+        title:
+            "🎁 invite friends\n\n" +
+            "send this link to your friends. {{ bonus }}\n\n" +
+            "{{ link }}\n\n" +
+            "👥 invited: {{ count }}\n" +
+            "📥 downloads today: {{ used }} of {{ limit }}",
+        bonus: "for each friend who joins with your link, you get {{ perInvite }} more downloads per day.",
+        noBonus: "",
+        unlimited: "unlimited",
+        joined: "🎉 someone joined with your invite link!{{ bonus }}",
+        joinedBonus: " you get {{ perInvite }} more downloads per day.",
+    },
+
+    quota: {
+        exceeded:
+            "you've used today's downloads ({{ limit }} files per day).\n\n" +
+            "try again tomorrow, or invite friends to get more: /invite",
+    },
+
+    group: {
+        usage: "to download in a group, send:\n/dl link",
+        startPrivate: "📥 download in the bot",
+    },
+
+    inline: {
+        notCached: "📥 send this link to the bot first",
+        hint: "📥 type the link of a video or post",
+    },
     errors: {
         unsupported: "this link isn't supported. are you sure it's the right one?",
         disabled: "this service is disabled on this server.",
@@ -229,13 +335,16 @@ const en = {
             "👥 users: {{ users }}\n" +
             "✅ active: {{ active }}\n" +
             "🚫 blocked the bot: {{ blocked }}\n" +
-            "⛔️ banned: {{ banned }}\n\n" +
+            "⛔️ banned: {{ banned }}\n" +
+            "⭐️ vip: {{ vip }}\n" +
+            "🎁 joined by invite: {{ invited }}\n\n" +
             "🆕 new today: {{ newToday }}\n" +
             "🆕 new in the last 7 days: {{ newWeek }}\n" +
             "🟢 active today: {{ activeToday }}\n\n" +
             "⬇️ downloads today: {{ downloadsToday }}\n" +
             "⬇️ downloads in the last 7 days: {{ downloadsWeek }}\n" +
-            "⬇️ all downloads: {{ downloadsTotal }}\n\n" +
+            "⬇️ all downloads: {{ downloadsTotal }}\n" +
+            "⚡️ files ready to send instantly: {{ cachedFiles }}\n\n" +
             "🔝 top services (7 days):\n{{ top }}",
         none: "—",
 
@@ -281,6 +390,39 @@ const en = {
         maintenanceToggled: "maintenance mode is {{ state }}. only admins can use the bot meanwhile.",
         on: "on",
         off: "off",
+
+        caption: "✍️ file caption",
+        captionText: "✍️ caption under files\n\ncurrent: {{ current }}\n\nsend the new text, or \"-\" for no caption.",
+        captionNone: "(no caption)",
+        captionSaved: "✅ caption saved.",
+
+        quota: "🎟 quota",
+        quotaText:
+            "🎟 daily quota\n\n" +
+            "downloads per user per day: {{ daily }}\n" +
+            "extra downloads per invite: {{ perInvite }}\n" +
+            "vip users (no limit): {{ vip }}",
+        quotaUnlimited: "unlimited",
+        quotaEditDaily: "✏️ daily quota",
+        quotaEditInvite: "✏️ invite reward",
+        quotaDailyPrompt: "send how many downloads each user gets per day (0 means unlimited).",
+        quotaInvitePrompt: "send how many extra downloads each invite gives (0 means none).",
+        quotaSaved: "✅ saved.",
+        numberInvalid: "send a number.",
+
+        vip: "⭐️ vip user",
+        vipPrompt: "send the user's numeric id to make them vip (no daily quota). to undo, put a minus before it.",
+        vipAdded: "⭐️ user {{ id }} is vip now.",
+        vipRemoved: "user {{ id }} isn't vip anymore.",
+
+        groupsOn: "👥 groups: on",
+        groupsOff: "👥 groups: off",
+        groupsToggled: "groups are {{ state }}. in groups, the bot works with /dl link.",
+
+        backup: "💾 backup",
+        backupCaption: "💾 fetchr bot backup, {{ date }}\n👥 {{ users }} users",
+        backupFailed: "⚠️ couldn't make a backup.",
+
     },
 };
 

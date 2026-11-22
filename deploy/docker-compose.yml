@@ -75,6 +75,7 @@ services:
             MAX_FILE_SIZE_MB: ${BOT_MAX_FILE_SIZE_MB:-}
             VIDEO_QUALITY: ${BOT_VIDEO_QUALITY:-720}
             ADMIN_IDS: ${BOT_ADMIN_IDS:-}
+            BACKUP_HOUR: ${BOT_BACKUP_HOUR:-4}
             DATA_DIR: /data
         volumes:
             # users, settings and stats of the bot

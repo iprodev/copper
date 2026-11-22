@@ -176,6 +176,39 @@ if [[ $FIRST_INSTALL -eq 1 ]] && confirm "set up the telegram bot now? (it can b
     fi
 fi
 
+# a local telegram bot api server lets the bot send files up to 2000 MB
+# instead of 50 MB. asked once, when the bot is set up.
+if [[ -n "$(env_get BOT_TOKEN)" && -z "$(env_get TELEGRAM_API_URL)" && "$(env_get LOCAL_BOT_API)" != "no" ]]; then
+    echo
+    info "the bot can send files up to 50 MB. with a local bot api server, up to 2000 MB."
+    info "it needs an api_id and api_hash from https://my.telegram.org (\"API development tools\")."
+    if confirm "set up the local bot api server now?"; then
+        api_id="$(ask "api_id" "")"
+        api_hash="$(ask "api_hash" "")"
+
+        if [[ "$api_id" =~ ^[0-9]+$ && "$api_hash" =~ ^[0-9a-f]{32}$ ]]; then
+            env_set TELEGRAM_API_ID "$api_id"
+            env_set TELEGRAM_API_HASH "$api_hash"
+            env_set TELEGRAM_API_URL "http://telegram-bot-api:8081"
+            env_set COMPOSE_PROFILES "bot,bot-api-server"
+
+            # a bot has to log out of telegram's own servers once before a
+            # local server can use it (it can't log back in there for 10 minutes)
+            if curl -s --max-time 20 "https://api.telegram.org/bot$(env_get BOT_TOKEN)/logOut" | grep -q '"ok":true'; then
+                ok "the bot logged out of telegram's servers, the local server takes over"
+            else
+                warn "couldn't log the bot out of telegram's servers (maybe it already was). if the bot doesn't answer, open https://api.telegram.org/bot<token>/logOut once."
+            fi
+            ok "local bot api server: files up to 2000 MB"
+        else
+            warn "the api_id must be a number and the api_hash 32 characters (0-9, a-f), skipping"
+        fi
+    else
+        env_set LOCAL_BOT_API "no"
+        info "skipped, the limit stays at 50 MB. to set it up later, remove LOCAL_BOT_API=no from .env and run this script again."
+    fi
+fi
+
 cp "$SCRIPT_DIR/docker-compose.yml" "$INSTALL_DIR/docker-compose.yml"
 mkdir -p "$INSTALL_DIR/warp-data" "$INSTALL_DIR/bot-data"
 # the bot runs as an unprivileged user (uid 1000) and keeps its database here
