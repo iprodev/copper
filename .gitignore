@@ -17,6 +17,7 @@ keys.json
 
 # docker
 docker-compose.yml
+!deploy/docker-compose.yml
 
 # ide
 .vscode

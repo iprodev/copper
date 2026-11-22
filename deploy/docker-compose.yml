@@ -1,0 +1,95 @@
+# fetchr: api, youtube session generator, cloudflare warp and the telegram bot.
+# settings live in .env (made by install.sh, see .env.example).
+# nothing here is reachable from the internet directly: the api only listens
+# on 127.0.0.1 and nginx on the host forwards api.<domain> to it.
+
+name: fetchr
+
+services:
+    api:
+        image: ghcr.io/iprodev/fetchr:${FETCHR_VERSION:-1}
+        init: true
+        read_only: true
+        restart: unless-stopped
+        ports:
+            - 127.0.0.1:${API_PORT:-9000}:9000
+        environment:
+            API_URL: https://${API_DOMAIN}/
+            CORS_URL: https://${WEB_DOMAIN}
+            DISABLED_SERVICES: ${DISABLED_SERVICES:-newgrounds}
+            YOUTUBE_SESSION_SERVER: http://yt-session-generator:8080/
+            # only these services go through warp, the rest connect directly
+            SERVICE_PROXIES: ${SERVICE_PROXIES:-youtube=socks5://warp:1080}
+            # api keys (the telegram bot has one)
+            API_KEY_URL: file:///keys.json
+            # file downloads per ip per minute. the bot's downloads all come
+            # from one address, so this is higher than the default (40)
+            TUNNEL_RATELIMIT_MAX: ${TUNNEL_RATELIMIT_MAX:-120}
+            RATELIMIT_MAX: ${RATELIMIT_MAX:-20}
+            DURATION_LIMIT: ${DURATION_LIMIT:-10800}
+        volumes:
+            - ./keys.json:/keys.json:ro
+        depends_on:
+            - warp
+            - yt-session-generator
+
+    yt-session-generator:
+        image: ghcr.io/imputnet/yt-session-generator:webserver
+        init: true
+        restart: unless-stopped
+
+    # official cloudflare warp client with a socks5/http proxy on port 1080.
+    # only other containers can reach it, no port is published.
+    warp:
+        image: caomingjun/warp:2026.8.2115.0-2.12.0
+        restart: unless-stopped
+        device_cgroup_rules:
+            - "c 10:200 rwm"
+        devices:
+            - /dev/net/tun:/dev/net/tun
+        environment:
+            WARP_SLEEP: 2
+            WARP_LICENSE_KEY: ${WARP_LICENSE_KEY:-}
+        # these only affect the network inside this container, not the server
+        cap_add:
+            - MKNOD
+            - AUDIT_WRITE
+            - NET_ADMIN
+        sysctls:
+            - net.ipv6.conf.all.disable_ipv6=0
+            - net.ipv4.conf.all.src_valid_mark=1
+        volumes:
+            - ./warp-data:/var/lib/cloudflare-warp
+
+    # telegram bot, enabled with COMPOSE_PROFILES=bot in .env
+    bot:
+        image: ghcr.io/iprodev/fetchr-bot:${FETCHR_VERSION:-1}
+        profiles: ["bot"]
+        init: true
+        restart: unless-stopped
+        environment:
+            BOT_TOKEN: ${BOT_TOKEN:-}
+            FETCHR_API_URL: http://api:9000/
+            FETCHR_API_KEY: ${BOT_API_KEY:-}
+            TELEGRAM_API_URL: ${TELEGRAM_API_URL:-}
+            MAX_FILE_SIZE_MB: ${BOT_MAX_FILE_SIZE_MB:-}
+            VIDEO_QUALITY: ${BOT_VIDEO_QUALITY:-720}
+            ALLOWED_USERS: ${BOT_ALLOWED_USERS:-}
+        depends_on:
+            - api
+
+    # optional local telegram bot api server: lets the bot send files up to
+    # 2000 MB instead of 50 MB. enabled with COMPOSE_PROFILES=bot,bot-api-server
+    telegram-bot-api:
+        image: aiogram/telegram-bot-api:10.2
+        profiles: ["bot-api-server"]
+        restart: unless-stopped
+        environment:
+            TELEGRAM_API_ID: ${TELEGRAM_API_ID:-}
+            TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:-}
+            TELEGRAM_LOCAL: 1
+        volumes:
+            - telegram-bot-api:/var/lib/telegram-bot-api
+
+volumes:
+    telegram-bot-api:
