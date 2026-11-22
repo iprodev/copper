@@ -3,10 +3,8 @@
 
 import { format, LANGUAGES } from "./messages.js";
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// telegram allows about 30 messages per second, broadcasts stay below that
-const BROADCAST_DELAY = 40;
+// messages of a broadcast that are on their way at the same time
+const BROADCAST_WORKERS = 10;
 
 const button = (text, data) => ({ text, callback_data: data });
 
@@ -429,43 +427,43 @@ export class Admin {
 
     async #sendToAll(chatId, progressMessageId, fromChatId, messageId, t) {
         const targets = this.#store.broadcastTargets();
-        let sent = 0, blocked = 0, failed = 0, lastUpdate = 0;
+        let sent = 0, blocked = 0, failed = 0, done = 0, lastUpdate = 0;
 
-        const progress = (done) => this.#telegram.editMessageText(
+        const progress = () => this.#telegram.editMessageText(
             chatId, progressMessageId,
             format(t.admin.broadcastRunning, { done, total: targets.length }),
         ).catch(() => {});
 
-        await progress(0);
+        await progress();
 
-        for (const [i, userId] of targets.entries()) {
-            for (let attempt = 0; attempt < 3; attempt++) {
-                try {
-                    await this.#telegram.copyMessage(userId, fromChatId, messageId);
-                    sent++;
-                    break;
-                } catch (e) {
-                    if (e.code === 429 && e.retryAfter) {
-                        await sleep(e.retryAfter * 1000);
-                        continue;
-                    }
-                    if (e.code === 403) {
-                        // the user blocked the bot or deleted their account
-                        this.#store.setBlocked(userId, true);
-                        blocked++;
-                    } else {
-                        failed++;
-                    }
-                    break;
+        // the limiter paces the messages (users' own messages go first),
+        // a few are sent at the same time so it can use its whole budget
+        const sendTo = async (userId) => {
+            try {
+                await this.#telegram.copyMessage(userId, fromChatId, messageId, {}, { priority: "low" });
+                sent++;
+            } catch (e) {
+                if (e.code === 403) {
+                    // the user blocked the bot or deleted their account
+                    this.#store.setBlocked(userId, true);
+                    blocked++;
+                } else {
+                    failed++;
                 }
             }
 
+            done++;
             if (Date.now() - lastUpdate > 3000) {
                 lastUpdate = Date.now();
-                await progress(i + 1);
+                progress();
             }
-            await sleep(BROADCAST_DELAY);
-        }
+        };
+
+        const queue = [...targets];
+        const worker = async () => {
+            while (queue.length) await sendTo(queue.shift());
+        };
+        await Promise.all(Array.from({ length: BROADCAST_WORKERS }, worker));
 
         return { sent, blocked, failed };
     }

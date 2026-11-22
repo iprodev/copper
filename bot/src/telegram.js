@@ -1,4 +1,11 @@
 import fs from "node:fs";
+import { Limiter } from "./limiter.js";
+
+// methods that send or change messages go through the limiter
+const LIMITED = new Set([
+    "sendMessage", "editMessageText", "deleteMessage", "copyMessage", "forwardMessage",
+    "sendPhoto", "sendVideo", "sendAudio", "sendDocument", "sendAnimation", "sendMediaGroup",
+]);
 
 export class TelegramError extends Error {
     constructor(method, response) {
@@ -14,12 +21,28 @@ export class Telegram {
     #base;
     #fetch;
 
-    constructor({ token, apiUrl = "https://api.telegram.org", fetch = globalThis.fetch }) {
+    constructor({ token, apiUrl = "https://api.telegram.org", fetch = globalThis.fetch, limits }) {
         this.#base = `${apiUrl}/bot${token}`;
         this.#fetch = fetch;
+        this.limiter = new Limiter(limits);
     }
 
-    async call(method, params = {}, { signal } = {}) {
+    // priority "low" is for broadcasts. a key replaces a waiting request
+    // with the same key (used for edits of the same message).
+    call(method, params = {}, { signal, priority, key } = {}) {
+        if (!LIMITED.has(method)) {
+            return this.#request(method, params, signal);
+        }
+
+        const chatId = params instanceof FormData ? params.get("chat_id") : params.chat_id;
+        return this.limiter.schedule(
+            String(chatId),
+            () => this.#request(method, params, signal),
+            { priority, key },
+        );
+    }
+
+    async #request(method, params, signal) {
         const isForm = params instanceof FormData;
 
         // errors never include the url, it contains the bot token
@@ -66,7 +89,7 @@ export class Telegram {
             text,
             link_preview_options: { is_disabled: true },
             ...extra,
-        });
+        }, { key: `edit:${chatId}:${messageId}` });
     }
 
     answerCallbackQuery(id, text, showAlert = false) {
@@ -77,13 +100,13 @@ export class Telegram {
     }
 
     // sends a copy of any message (text, media, ...), used for broadcasts
-    copyMessage(chatId, fromChatId, messageId, extra = {}) {
+    copyMessage(chatId, fromChatId, messageId, extra = {}, { priority } = {}) {
         return this.call("copyMessage", {
             chat_id: chatId,
             from_chat_id: fromChatId,
             message_id: messageId,
             ...extra,
-        });
+        }, { priority });
     }
 
     getChat(chatId) {

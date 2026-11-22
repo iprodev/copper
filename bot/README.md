@@ -14,6 +14,7 @@ the bot talks to a fetchr api instance, so every service supported by the instan
 - inline mode: `@yourbot <link>` in any chat sends files that were downloaded before. turn it on with @BotFather → /setinline.
 - groups: `/dl <link>` (or `/dl` as a reply to a message with a link), when turned on in the admin panel.
 - daily backups of the database to the admins.
+- stays within telegram's limits, so it doesn't get rate limited with many users: every message, edit and upload goes through one queue (about 25 per second in total, one per second per private chat, one per 3 seconds per group). users' messages go before broadcasts, waiting edits of the same status message are merged, and when telegram still says "too many requests", the chat waits as long as telegram asks.
 - admin panel (/admin, for `ADMIN_IDS`): stats, broadcasts to all users, required channels (users must join them first), editable welcome messages, banning users and a maintenance mode.
 - links are never stored or logged. the bot keeps users' telegram ids, languages and settings (needed for broadcasts) and daily download counts per service in a small sqlite database.
 - files are kept in a temporary folder only while they're being sent.

@@ -182,7 +182,12 @@ before(async () => {
     config.maxFileSize = 1000;
     config.botUsername = "fetchr_test_bot";
 
-    telegram = new Telegram({ token: config.token, apiUrl: config.telegramApi });
+    // the real limits would make the tests slow, they're tested in limiter.test.js
+    telegram = new Telegram({
+        token: config.token,
+        apiUrl: config.telegramApi,
+        limits: { perSecond: 10000, privateInterval: 0, groupInterval: 0 },
+    });
     fetchr = new FetchrClient({ apiUrl: config.fetchrApi, apiKey: config.fetchrApiKey });
     await fetchr.init();
 

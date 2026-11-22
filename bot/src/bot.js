@@ -760,10 +760,12 @@ export class Bot {
     }
 
     async #process({ userId, chatId, link, t, downloadMode, quality, statusId }) {
+        // status updates don't hold up the work: the limiter sends them in
+        // order, and only the latest of several waiting ones
         const setStatus = (text) =>
             this.#telegram.editMessageText(chatId, statusId, text).catch(() => {});
 
-        await setStatus(t.working);
+        setStatus(t.working);
 
         const videoQuality = quality ?? this.#config.videoQuality;
         const key = cacheKey(link, downloadMode, videoQuality);
@@ -778,7 +780,7 @@ export class Bot {
         // sent before: telegram sends the same files again right away
         const cached = this.#store.getFiles(key, FILE_CACHE_AGE);
         if (cached?.length) {
-            await setStatus(t.uploading);
+            setStatus(t.uploading);
             const { ok } = await this.#upload(chatId, cached, caption);
             if (ok) return done();
             // the files aren't valid anymore, they're downloaded again
@@ -819,7 +821,7 @@ export class Bot {
                 // telegram limits how often a message can be edited
                 if (Date.now() - lastProgress > 1500) {
                     lastProgress = Date.now();
-                    await setStatus(items.length > 1 ? `${t.downloading} (${i + 1}/${items.length})` : t.downloading);
+                    setStatus(items.length > 1 ? `${t.downloading} (${i + 1}/${items.length})` : t.downloading);
                 }
 
                 try {
@@ -832,7 +834,7 @@ export class Bot {
             }
 
             if (files.length) {
-                await setStatus(t.uploading);
+                setStatus(t.uploading);
                 const { ok, sentFiles } = await this.#upload(chatId, files, caption);
 
                 if (ok) {
@@ -893,7 +895,7 @@ export class Bot {
         const single = album.length > 1 ? files.filter(file => !album.includes(file)) : files;
 
         if (album.length > 1) {
-            await this.#telegram.sendChatAction(chatId, "upload_photo").catch(() => {});
+            this.#telegram.sendChatAction(chatId, "upload_photo").catch(() => {});
 
             for (let i = 0; i < album.length; i += MAX_ITEMS) {
                 const chunk = album.slice(i, i + MAX_ITEMS);
@@ -922,7 +924,7 @@ export class Bot {
     async #sendFile(chatId, file, caption, remember) {
         const [ method, field, action, extra = {} ] = SENDERS[file.kind] ?? SENDERS.document;
         const options = { ...extra, ...(caption ? { caption } : {}) };
-        await this.#telegram.sendChatAction(chatId, action).catch(() => {});
+        this.#telegram.sendChatAction(chatId, action).catch(() => {});
 
         try {
             remember(file, await this.#telegram.sendFile(method, field, chatId, file, options));
