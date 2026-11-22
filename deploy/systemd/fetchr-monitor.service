@@ -1,0 +1,9 @@
+[Unit]
+Description=fetchr monitor (checks the api, warp and youtube, alerts the bot's admins)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=__INSTALL_DIR__/monitor.sh
+TimeoutStartSec=15min

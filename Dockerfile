@@ -23,7 +23,7 @@ COPY --from=build --chown=node:node /prod/bot /app
 
 USER node
 
-CMD [ "node", "src/index.js" ]
+CMD [ "node", "--disable-warning=ExperimentalWarning", "src/index.js" ]
 
 FROM base AS api
 WORKDIR /app

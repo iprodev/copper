@@ -1,6 +1,10 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import { loadConfig } from "./config.js";
 import { Telegram } from "./telegram.js";
 import { FetchrClient } from "./fetchr.js";
+import { Store } from "./store.js";
 import { Bot } from "./bot.js";
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -10,6 +14,9 @@ const log = (...args) => console.log(new Date().toISOString(), ...args);
 const config = loadConfig();
 const telegram = new Telegram({ token: config.token, apiUrl: config.telegramApi });
 const fetchr = new FetchrClient({ apiUrl: config.fetchrApi, apiKey: config.fetchrApiKey });
+
+fs.mkdirSync(config.dataDir, { recursive: true });
+const store = new Store(path.join(config.dataDir, "bot.db"));
 
 // the api may still be starting
 for (let attempt = 1; ; attempt++) {
@@ -26,25 +33,42 @@ for (let attempt = 1; ; attempt++) {
 // polling doesn't work while a webhook is set
 await telegram.call("deleteWebhook").catch(() => {});
 
-await telegram.call("setMyCommands", {
-    commands: [
-        { command: "start", description: "how to use the bot" },
+const commands = {
+    en: [
+        { command: "start", description: "start" },
+        { command: "help", description: "how to use the bot" },
+        { command: "settings", description: "default quality" },
+        { command: "language", description: "change the language" },
         { command: "audio", description: "download just the audio: /audio link" },
     ],
-}).catch(() => {});
-
-await telegram.call("setMyCommands", {
-    language_code: "fa",
-    commands: [
-        { command: "start", description: "راهنمای استفاده" },
+    fa: [
+        { command: "start", description: "شروع" },
+        { command: "help", description: "راهنمای استفاده" },
+        { command: "settings", description: "کیفیت پیش‌فرض" },
+        { command: "language", description: "تغییر زبان" },
         { command: "audio", description: "دانلود فقط صدا: /audio لینک" },
     ],
-}).catch(() => {});
+};
+
+await telegram.call("setMyCommands", { commands: commands.en }).catch(() => {});
+await telegram.call("setMyCommands", { commands: commands.fa, language_code: "fa" }).catch(() => {});
+
+// admins also see /admin in their menu
+for (const adminId of config.adminIds) {
+    const language = store.getUser(adminId)?.language === "en" ? "en" : "fa";
+    await telegram.call("setMyCommands", {
+        commands: [
+            ...commands[language],
+            { command: "admin", description: language === "fa" ? "پنل مدیریت" : "admin panel" },
+        ],
+        scope: { type: "chat", chat_id: adminId },
+    }).catch(() => {});
+}
 
 const me = await telegram.call("getMe");
-log(`bot @${me.username} is running`);
+log(`bot @${me.username} is running, ${config.adminIds.size} admin(s)`);
 
-const bot = new Bot({ config, telegram, fetchr });
+const bot = new Bot({ config, telegram, fetchr, store });
 const controller = new AbortController();
 let running = true;
 
@@ -65,7 +89,7 @@ while (running) {
 
         for (const update of updates) {
             offset = update.update_id + 1;
-            // messages are handled in parallel, the bot limits concurrency itself.
+            // updates are handled in parallel, the bot limits concurrency itself.
             // nothing about users or their links is logged.
             bot.handleUpdate(update).catch(e => log(`couldn't handle an update: ${e.message}`));
         }
@@ -79,4 +103,5 @@ while (running) {
     }
 }
 
+store.close();
 log("stopped");
