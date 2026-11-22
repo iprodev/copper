@@ -46,7 +46,7 @@ export class Telegram {
         return this.call("getUpdates", {
             offset,
             timeout,
-            allowed_updates: ["message"],
+            allowed_updates: ["message", "callback_query", "my_chat_member"],
         }, { signal });
     }
 
@@ -59,13 +59,43 @@ export class Telegram {
         });
     }
 
-    editMessageText(chatId, messageId, text) {
+    editMessageText(chatId, messageId, text, extra = {}) {
         return this.call("editMessageText", {
             chat_id: chatId,
             message_id: messageId,
             text,
             link_preview_options: { is_disabled: true },
+            ...extra,
         });
+    }
+
+    answerCallbackQuery(id, text, showAlert = false) {
+        return this.call("answerCallbackQuery", {
+            callback_query_id: id,
+            ...(text ? { text, show_alert: showAlert } : {}),
+        });
+    }
+
+    // sends a copy of any message (text, media, ...), used for broadcasts
+    copyMessage(chatId, fromChatId, messageId, extra = {}) {
+        return this.call("copyMessage", {
+            chat_id: chatId,
+            from_chat_id: fromChatId,
+            message_id: messageId,
+            ...extra,
+        });
+    }
+
+    getChat(chatId) {
+        return this.call("getChat", { chat_id: chatId });
+    }
+
+    getChatMember(chatId, userId) {
+        return this.call("getChatMember", { chat_id: chatId, user_id: userId });
+    }
+
+    exportChatInviteLink(chatId) {
+        return this.call("exportChatInviteLink", { chat_id: chatId });
     }
 
     deleteMessage(chatId, messageId) {

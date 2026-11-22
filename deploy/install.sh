@@ -169,13 +169,17 @@ if [[ $FIRST_INSTALL -eq 1 ]] && confirm "set up the telegram bot now? (it can b
     if [[ "$BOT_TOKEN" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]]; then
         env_set BOT_TOKEN "$BOT_TOKEN"
         env_set COMPOSE_PROFILES "bot"
+        admin_id="$(ask "your numeric telegram id, for the admin panel (find it with @userinfobot)" "")"
+        [[ "$admin_id" =~ ^[0-9]+$ ]] && env_set BOT_ADMIN_IDS "$admin_id"
     else
         warn "that doesn't look like a bot token, skipping the bot"
     fi
 fi
 
 cp "$SCRIPT_DIR/docker-compose.yml" "$INSTALL_DIR/docker-compose.yml"
-mkdir -p "$INSTALL_DIR/warp-data"
+mkdir -p "$INSTALL_DIR/warp-data" "$INSTALL_DIR/bot-data"
+# the bot runs as an unprivileged user (uid 1000) and keeps its database here
+chown 1000:1000 "$INSTALL_DIR/bot-data"
 ok "settings saved in $INSTALL_DIR"
 
 # ---------------------------------------------------------------- web app

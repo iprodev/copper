@@ -23,9 +23,9 @@ export const loadConfig = (env = process.env) => {
         throw new Error(`VIDEO_QUALITY must be one of: ${QUALITIES.join(", ")}`);
     }
 
-    const allowedUsers = env.ALLOWED_USERS
-        ? new Set(env.ALLOWED_USERS.split(/[,\s]+/).filter(Boolean).map(Number))
-        : null;
+    const idList = (value) => new Set(
+        String(value ?? "").split(/[,\s]+/).filter(Boolean).map(Number).filter(Number.isSafeInteger)
+    );
 
     return {
         token,
@@ -36,7 +36,10 @@ export const loadConfig = (env = process.env) => {
         videoQuality,
         concurrency: positive(env.CONCURRENCY, 3),
         userRateLimit: positive(env.USER_RATE_LIMIT, 10),
-        allowedUsers,
+        // users that can open the admin panel (/admin)
+        adminIds: idList(env.ADMIN_IDS),
+        // where the database is kept
+        dataDir: env.DATA_DIR || "data",
         tempDir: env.TEMP_DIR || os.tmpdir(),
     };
 }
