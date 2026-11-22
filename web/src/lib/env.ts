@@ -43,7 +43,7 @@ const upstream = {
     project: "https://github.com/imputnet/cobalt",
 };
 
-const officialApiURL = "https://api.fetchr.dignitydash.com";
+const officialApiURL = "https://api.fetchr.download";
 
 export { officialApiURL, contacts, siriShortcuts, docs, upstream };
 export default variables;

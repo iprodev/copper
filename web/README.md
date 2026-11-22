@@ -14,7 +14,7 @@ them, you must specify them when building the frontend (or running a vite server
 
 | name                            | example                     | description                                                                                             |
 |:--------------------------------|:----------------------------|:--------------------------------------------------------------------------------------------------------|
-| `WEB_HOST`                      | `fetchr.dignitydash.com`    | domain on which the frontend will be running. used for meta tags and configuring plausible.             |
+| `WEB_HOST`                      | `fetchr.download`           | domain on which the frontend will be running. used for meta tags and configuring plausible.             |
 | `WEB_PLAUSIBLE_HOST`            | `plausible.io`*             | enables plausible analytics with provided hostname as receiver backend.                                 |
 | `WEB_DEFAULT_API`               | `https://api.example.com/`  | changes url which is used for api requests by frontend clients.                                         |
 | `ENABLE_DEPRECATED_YOUTUBE_HLS` | `true`                      | enables the youtube HLS settings entry; allows sending the related variable to the processing instance. |
@@ -25,12 +25,12 @@ them, you must specify them when building the frontend (or running a vite server
 ## link prefill
 to prefill the link into the input box & start the download automatically, you can pass the URL in the `#` parameter, like this:
 ```
-https://fetchr.dignitydash.com/#https://www.youtube.com/watch?v=dQw4w9WgXcQ
+https://fetchr.download/#https://www.youtube.com/watch?v=dQw4w9WgXcQ
 ```
 
 the link can also be URI-encoded, like this:
 ```
-https://fetchr.dignitydash.com/#https%3A//www.youtube.com/watch%3Fv=dQw4w9WgXcQ
+https://fetchr.download/#https%3A//www.youtube.com/watch%3Fv=dQw4w9WgXcQ
 ```
 
 ## license

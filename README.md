@@ -6,8 +6,8 @@
     <p>
         save what you love, without the nonsense
         <br/>
-        <a href="https://fetchr.dignitydash.com">
-            fetchr.dignitydash.com
+        <a href="https://fetchr.download">
+            fetchr.download
         </a>
     </p>
     <br/>

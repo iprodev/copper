@@ -23,7 +23,7 @@
     "bugs": {
         "url": "https://github.com/iprodev/fetchr/issues"
     },
-    "homepage": "https://fetchr.dignitydash.com/",
+    "homepage": "https://fetchr.download/",
     "devDependencies": {
         "@eslint/js": "^9.39.5",
         "@fetchr/version-info": "workspace:^",

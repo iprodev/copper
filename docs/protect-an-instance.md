@@ -40,7 +40,7 @@ cloudflare dashboard interface might change over time, but basics should stay th
 </div>
 
 5. add fetchr frontend domains you want the widget to work with, you can change this list later at any time
-    - if you want to use your processing instance with the [fetchr.dignitydash.com](https://fetchr.dignitydash.com/) frontend, then add `fetchr.dignitydash.com` to the list
+    - if you want to use your processing instance with the [fetchr.download](https://fetchr.download/) frontend, then add `fetchr.download` to the list
 <div align="left">
     <p>
         <img src="images/protect-an-instance/domain.png" width="450" />
