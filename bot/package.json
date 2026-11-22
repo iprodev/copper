@@ -1,7 +1,7 @@
 {
     "name": "@fetchr/bot",
     "description": "telegram bot for fetchr: send a link, get the file",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "author": "iProDev",
     "type": "module",
     "private": true,

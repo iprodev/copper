@@ -1,7 +1,7 @@
 {
     "name": "@fetchr/api",
     "description": "save what you love",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "author": "iProDev",
     "exports": "./src/fetchr.js",
     "type": "module",
