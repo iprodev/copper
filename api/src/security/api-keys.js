@@ -208,7 +208,7 @@ export const validateAuthorization = (req) => {
     if (matchingKey.ips) {
         let addr;
         try {
-            addr = ip.parse(req.ip);
+            addr = ip.process(req.ip);
         } catch {
             return err("invalid_ip");
         }
@@ -226,7 +226,7 @@ export const validateAuthorization = (req) => {
     }
 
     if (matchingKey.userAgents) {
-        const userAgent = req.get('User-Agent');
+        const userAgent = req.get('User-Agent') ?? '';
         if (!matchingKey.userAgents.some(regex => regex.test(userAgent))) {
             return err("ua_not_allowed");
         }

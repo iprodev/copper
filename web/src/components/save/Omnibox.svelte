@@ -144,8 +144,8 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <!--
-    if you want to remove the community instance label,
-    refer to the license first https://github.com/imputnet/cobalt/tree/main/web#license
+    shown when the web app is pointed at an api other than the official
+    fetchr instance. see web/README.md for licensing info.
 -->
 {#if env.DEFAULT_API !== officialApiURL}
     <div id="instance-label">

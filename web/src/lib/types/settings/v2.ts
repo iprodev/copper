@@ -9,7 +9,7 @@ export const videoQualityOptions = ["max", "2160", "1440", "1080", "720", "480",
 export const youtubeVideoCodecOptions = ["h264", "av1", "vp9"] as const;
 export const savingMethodOptions = ["ask", "download", "share", "copy"] as const;
 
-type CobaltSettingsAppearance = {
+type FetchrSettingsAppearance = {
     theme: typeof themeOptions[number],
     language: keyof typeof languages,
     autoLanguage: boolean,
@@ -17,16 +17,16 @@ type CobaltSettingsAppearance = {
     reduceTransparency: boolean,
 };
 
-type CobaltSettingsAdvanced = {
+type FetchrSettingsAdvanced = {
     debug: boolean,
 };
 
-type CobaltSettingsPrivacy = {
+type FetchrSettingsPrivacy = {
     alwaysProxy: boolean,
     disableAnalytics: boolean,
 };
 
-type CobaltSettingsProcessing = {
+type FetchrSettingsProcessing = {
     allowDefaultOverride: boolean,
     customInstanceURL: string,
     enableCustomInstances: boolean,
@@ -34,7 +34,7 @@ type CobaltSettingsProcessing = {
     seenOverrideWarning: boolean,
 }
 
-type CobaltSettingsSaveV2 = {
+type FetchrSettingsSaveV2 = {
     audioFormat: typeof audioFormatOptions[number],
     audioBitrate: typeof audioBitrateOptions[number],
     disableMetadata: boolean,
@@ -50,11 +50,11 @@ type CobaltSettingsSaveV2 = {
     youtubeHLS: boolean,
 };
 
-export type CobaltSettingsV2 = {
+export type FetchrSettingsV2 = {
     schemaVersion: 2,
-    advanced: CobaltSettingsAdvanced,
-    appearance: CobaltSettingsAppearance,
-    save: CobaltSettingsSaveV2,
-    privacy: CobaltSettingsPrivacy,
-    processing: CobaltSettingsProcessing,
+    advanced: FetchrSettingsAdvanced,
+    appearance: FetchrSettingsAppearance,
+    save: FetchrSettingsSaveV2,
+    privacy: FetchrSettingsPrivacy,
+    processing: FetchrSettingsProcessing,
 };

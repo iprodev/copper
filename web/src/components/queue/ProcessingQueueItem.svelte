@@ -9,8 +9,8 @@
     import { queueVisible } from "$lib/state/queue-visibility";
     import { currentTasks } from "$lib/state/task-manager/current-tasks";
 
-    import type { CobaltQueueItem, UUID } from "$lib/types/queue";
-    import type { CobaltCurrentTasks } from "$lib/types/task-manager";
+    import type { FetchrQueueItem, UUID } from "$lib/types/queue";
+    import type { FetchrCurrentTasks } from "$lib/types/task-manager";
 
     import ProgressBar from "$components/queue/ProgressBar.svelte";
 
@@ -35,7 +35,7 @@
 
     type Props = {
         id: UUID;
-        info: CobaltQueueItem;
+        info: FetchrQueueItem;
     }
 
     let { id, info }: Props = $props();
@@ -43,7 +43,7 @@
     let retrying = $state(false);
     let downloading = $state(false);
 
-    const retry = async (info: CobaltQueueItem) => {
+    const retry = async (info: FetchrQueueItem) => {
         if (info.canRetry && info.originalRequest) {
             retrying = true;
             await savingHandler({
@@ -77,8 +77,8 @@
     };
 
     type StatusText = {
-        info: CobaltQueueItem;
-        currentTasks: CobaltCurrentTasks;
+        info: FetchrQueueItem;
+        currentTasks: FetchrCurrentTasks;
         retrying: boolean;
     };
 
@@ -136,7 +136,7 @@
         }
     };
 
-    const getWorkerProgress = (item: CobaltQueueItem, workerId: UUID): number | undefined => {
+    const getWorkerProgress = (item: FetchrQueueItem, workerId: UUID): number | undefined => {
         if (item.state === 'running' && item.pipelineResults[workerId]) {
             return 100;
         }

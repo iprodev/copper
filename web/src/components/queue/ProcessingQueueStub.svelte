@@ -1,10 +1,10 @@
 <script lang="ts">
     import { t } from "$lib/i18n/translations";
-    import Meowbalt from "$components/misc/Meowbalt.svelte";
+    import Mascot from "$components/misc/Mascot.svelte";
 </script>
 
 <div class="queue-stub">
-    <Meowbalt emotion="think" />
+    <Mascot emotion="think" />
     <span class="subtext stub-text">
         {$t("queue.stub", {
             value: $t("queue.stub"),
@@ -28,7 +28,7 @@
         gap: var(--padding);
     }
 
-    .queue-stub :global(.meowbalt) {
+    .queue-stub :global(.mascot) {
         height: 120px;
     }
 

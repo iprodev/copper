@@ -67,9 +67,16 @@ const requestApiInfo = (bearerToken, videoId, password) => {
             }
         }
     )
-    .then(a => a.json())
+    .then(async r => ({ ...await r.json(), httpStatus: r.status }))
     .catch(() => {});
 }
+
+// vimeo's api sometimes fails for a moment, or answers without any files
+const isTransientFailure = (info) =>
+    !info
+    || info.httpStatus === 429
+    || info.httpStatus >= 500
+    || (!info.error_code && !info.files?.length);
 
 const compareQuality = (rendition, requestedQuality) => {
     const quality = parseInt(rendition);
@@ -77,10 +84,10 @@ const compareQuality = (rendition, requestedQuality) => {
 }
 
 const getDirectLink = async (data, quality, subtitleLang) => {
-    if (!data.files) return;
+    const files = data.files?.filter(f => f.rendition?.endsWith('p'));
+    if (!files?.length) return;
 
-    const match = data.files
-        .filter(f => f.rendition?.endsWith('p'))
+    const match = files
         .reduce((prev, next) => {
             const delta = {
                 prev: compareQuality(prev.rendition, quality),
@@ -202,6 +209,11 @@ export default async function(obj) {
             return { error: "fetch.fail" };
         }
         info = await requestApiInfo(newBearer, obj.id, obj.password);
+    }
+
+    if (isTransientFailure(info)) {
+        await new Promise(r => setTimeout(r, 1000));
+        info = await requestApiInfo(bearer || bearerToken, obj.id, obj.password);
     }
 
     // if there's still no info, then return a generic error

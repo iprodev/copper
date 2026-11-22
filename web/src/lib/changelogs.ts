@@ -1,7 +1,7 @@
 import { compareVersions } from 'compare-versions';
 
 export function getVersionFromPath(path: string) {
-    return path.split('/').pop()?.split('.md').shift()!;
+    return path.split('/').pop()?.split('.md').shift() ?? '';
 }
 
 export function getAllChangelogs() {

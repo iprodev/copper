@@ -3,6 +3,7 @@ import { getInternalTunnel } from "../stream/manage.js";
 import { setTunnelPort } from "../config.js";
 import { Green } from "../misc/console-text.js";
 import express from "express";
+import { withService } from "../misc/proxy.js";
 
 const validateTunnel = (req, res) => {
     if (!req.ip.endsWith('127.0.0.1')) {
@@ -35,7 +36,9 @@ const streamTunnel = (req, res) => {
         ...Object.entries(req.headers)
     ]);
 
-    return stream(res, { type: 'internal', data: streamInfo });
+    return withService(streamInfo.service, () =>
+        stream(res, { type: 'internal', data: streamInfo })
+    );
 }
 
 export const setupTunnelHandler = () => {

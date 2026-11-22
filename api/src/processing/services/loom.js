@@ -1,3 +1,4 @@
+import HLS from "hls-parser";
 import { genericUserAgent } from "../../config.js";
 
 const craftHeaders = id => ({
@@ -9,45 +10,80 @@ const craftHeaders = id => ({
     "x-loom-request-source": "loom_web_be851af",
 });
 
-async function fromTranscodedURL(id) {
-    const gql = await fetch(`https://www.loom.com/api/campaigns/sessions/${id}/transcoded-url`, {
+const videoSourceQuery = `
+    query GetVideoSource($videoId: ID!, $password: String, $acceptableMimes: [CloudfrontVideoAcceptableMime]) {
+        getVideo(id: $videoId, password: $password) {
+            __typename
+            ... on RegularUserVideo {
+                nullableRawCdnUrl(acceptableMimes: $acceptableMimes, password: $password) {
+                    url
+                }
+            }
+        }
+    }`;
+
+async function getVideoSource(id, acceptableMimes) {
+    const gql = await fetch("https://www.loom.com/graphql", {
         method: "POST",
         headers: craftHeaders(id),
         body: JSON.stringify({
-            force_original: false,
-            password: null,
-            anonID: null,
-            deviceID: null
+            operationName: "GetVideoSource",
+            variables: {
+                videoId: id,
+                password: null,
+                acceptableMimes,
+            },
+            query: videoSourceQuery,
         })
     })
     .then(r => r.status === 200 && r.json())
     .catch(() => {});
 
-    if (gql?.url?.includes('.mp4?')) {
-        return gql.url;
-    }
+    return gql?.data?.getVideo?.nullableRawCdnUrl?.url;
 }
 
-async function fromRawURL(id) {
-    const gql = await fetch(`https://www.loom.com/api/campaigns/sessions/${id}/raw-url`, {
-        method: "POST",
-        headers: craftHeaders(id),
-        body: JSON.stringify({
-            anonID: crypto.randomUUID(),
-            client_name: "web",
-            client_version: "be851af",
-            deviceID: null,
-            force_original: false,
-            password: null,
-            supported_mime_types: ["video/mp4"],
-        })
-    })
-    .then(r => r.status === 200 && r.json())
-    .catch(() => {});
-
-    if (gql?.url?.includes('.mp4?')) {
-        return gql.url;
+// loom's hls files are signed with query params that every
+// media playlist and segment needs, so we carry them over
+const withSignature = (uri, playlistUrl) => {
+    const url = new URL(uri, playlistUrl);
+    if (!url.search) {
+        url.search = playlistUrl.search;
     }
+    return url.toString();
+}
+
+async function fromHLS(id) {
+    const source = await getVideoSource(id, ["M3U8"]);
+    if (!source?.includes(".m3u8")) return;
+
+    const masterUrl = new URL(source);
+    const master = await fetch(masterUrl)
+        .then(r => r.status === 200 && r.text())
+        .catch(() => {});
+
+    if (!master) return;
+
+    let playlist;
+    try {
+        playlist = HLS.parse(master);
+    } catch {
+        return;
+    }
+
+    const variant = playlist.variants
+        ?.filter(v => v.uri)
+        ?.sort((a, b) => Number(b.bandwidth) - Number(a.bandwidth))?.[0];
+
+    if (!variant) return;
+
+    const video = withSignature(variant.uri, masterUrl);
+    const audio = variant.audio?.find(a => a.uri);
+
+    if (audio) {
+        return [video, withSignature(audio.uri, masterUrl)];
+    }
+
+    return video;
 }
 
 async function getTranscript(id) {
@@ -86,10 +122,17 @@ async function getTranscript(id) {
 }
 
 export default async function({ id, subtitleLang }) {
-    let url = await fromTranscodedURL(id);
-    url ??= await fromRawURL(id);
+    let urls, isHLS = false;
 
-    if (!url) {
+    const mp4 = await getVideoSource(id, ["MP4"]);
+    if (mp4?.includes(".mp4")) {
+        urls = mp4;
+    } else {
+        urls = await fromHLS(id);
+        isHLS = !!urls;
+    }
+
+    if (!urls) {
         return { error: "fetch.empty" }
     }
 
@@ -100,7 +143,8 @@ export default async function({ id, subtitleLang }) {
     }
 
     return {
-        urls: url,
+        urls,
+        isHLS,
         subtitles,
         filename: `loom_${id}.mp4`,
         audioFilename: `loom_${id}_audio`

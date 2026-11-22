@@ -10,11 +10,11 @@ import { createDialog } from "$lib/state/dialogs";
 import { downloadButtonState } from "$lib/state/omnibox";
 import { createSavePipeline } from "$lib/task-manager/queue";
 
-import type { CobaltSaveRequestBody } from "$lib/types/api";
+import type { FetchrSaveRequestBody } from "$lib/types/api";
 
 type SavingHandlerArgs = {
     url?: string,
-    request?: CobaltSaveRequestBody,
+    request?: FetchrSaveRequestBody,
     oldTaskId?: string
 }
 
@@ -25,7 +25,7 @@ export const savingHandler = async ({ url, request, oldTaskId }: SavingHandlerAr
         return createDialog({
             id: "save-error",
             type: "small",
-            meowbalt: "error",
+            mascot: "error",
             buttons: [
                 {
                     text: get(t)("button.gotit"),
@@ -96,7 +96,7 @@ export const savingHandler = async ({ url, request, oldTaskId }: SavingHandlerAr
     if (response.status === "tunnel") {
         downloadButtonState.set("check");
 
-        const probeResult = await API.probeCobaltTunnel(response.url);
+        const probeResult = await API.probeFetchrTunnel(response.url);
 
         if (probeResult === 200) {
             downloadButtonState.set("done");

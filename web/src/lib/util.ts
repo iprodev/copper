@@ -1,4 +1,4 @@
-import { CobaltFileMetadataKeys, type CobaltFileMetadata } from "$lib/types/api";
+import { FetchrFileMetadataKeys, type FetchrFileMetadata } from "$lib/types/api";
 
 export const formatFileSize = (size: number | undefined) => {
     size ||= 0;
@@ -15,9 +15,9 @@ export const formatFileSize = (size: number | undefined) => {
     return `${roundedSize} ${unit}`;
 }
 
-export const ffmpegMetadataArgs = (metadata: CobaltFileMetadata) =>
+export const ffmpegMetadataArgs = (metadata: FetchrFileMetadata) =>
     Object.entries(metadata).flatMap(([name, value]) => {
-        if (CobaltFileMetadataKeys.includes(name) && typeof value === "string") {
+        if (FetchrFileMetadataKeys.includes(name) && typeof value === "string") {
             if (name === "sublanguage") {
                 return [
                     '-metadata:s:s:0',

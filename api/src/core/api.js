@@ -1,8 +1,8 @@
 import cors from "cors";
 import http from "node:http";
 import rateLimit from "express-rate-limit";
-import { setGlobalDispatcher, EnvHttpProxyAgent } from "undici";
-import { getCommit, getBranch, getRemote, getVersion } from "@imput/version-info";
+import { setGlobalDispatcher } from "undici";
+import { getCommit, getBranch, getRemote, getVersion } from "@fetchr/version-info";
 
 import jwt from "../security/jwt.js";
 import stream from "../stream/stream.js";
@@ -19,6 +19,7 @@ import { friendlyServiceName } from "../processing/service-alias.js";
 import { verifyStream } from "../stream/manage.js";
 import { createResponse, normalizeRequest, getIP } from "../processing/request.js";
 import { setupTunnelHandler } from "./itunnel.js";
+import { buildGlobalDispatcher, withService } from "../misc/proxy.js";
 
 import * as APIKeys from "../security/api-keys.js";
 import * as Cookies from "../processing/cookie/manager.js";
@@ -50,12 +51,15 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
 
     const getServerInfo = () => {
         return JSON.stringify({
-            cobalt: {
+            fetchr: {
                 version: version,
                 url: env.apiURL,
                 startTime: `${startTimestamp}`,
                 turnstileSitekey: env.sessionEnabled ? env.turnstileSitekey : undefined,
-                services: [...env.enabledServices].map(e => {
+                services: [
+                    ...env.enabledServices,
+                    ...(env.genericExtractor ? ["generic"] : []),
+                ].map(e => {
                     return friendlyServiceName(e);
                 }),
             },
@@ -263,12 +267,13 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         }
 
         try {
-            const result = await match({
+            // requests made while extracting use the service's proxy, if it has one
+            const result = await withService(parsed.host, () => match({
                 host: parsed.host,
                 patternMatch: parsed.patternMatch,
                 params: normalizedRequest,
                 authType: req.authType ?? "none",
-            });
+            }));
 
             res.status(result.status).json(result.body);
         } catch {
@@ -337,15 +342,14 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
     randomizeCiphers();
     setInterval(randomizeCiphers, 1000 * 60 * 30); // shuffle ciphers every 30 minutes
 
-    env.subscribe(['externalProxy', 'httpProxyValues'], () => {
+    env.subscribe(['externalProxy', 'httpProxyValues', 'serviceProxies'], () => {
         // TODO: remove env.externalProxy in a future version
-        const options = {};
-        if (env.externalProxy) {
-            options.httpProxy = env.externalProxy;
-        }
-
         setGlobalDispatcher(
-            new EnvHttpProxyAgent(options)
+            buildGlobalDispatcher({
+                externalProxy: env.externalProxy,
+                serviceProxies: env.serviceProxies,
+                knownServices: new Set([...env.allServices, "generic"]),
+            })
         );
     });
 
@@ -356,7 +360,7 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
     }, () => {
         if (isPrimary) {
             console.log(`\n` +
-                Bright(Cyan("cobalt ")) + Bright("API ^ω^") + "\n" +
+                Bright(Cyan("fetchr ")) + Bright("API") + "\n" +
 
                 "~~~~~~\n" +
                 Bright("version: ") + version + "\n" +

@@ -2,11 +2,17 @@ import { request } from "undici";
 import { Readable } from "node:stream";
 import { closeRequest, getHeaders, pipe } from "./shared.js";
 import { handleHlsPlaylist, isHlsResponse, probeInternalHLSTunnel } from "./internal-hls.js";
+import { assertSafeURL } from "../security/network.js";
+import { isGenericService } from "../processing/service-config.js";
 
 const CHUNK_SIZE = BigInt(8e6); // 8 MB
 const min = (a, b) => a < b ? a : b;
 
 const serviceNeedsChunks = new Set(["youtube", "vk"]);
+const hlsSkippedHeaders = new Set(["content-length", "content-range", "accept-ranges", "content-encoding"]);
+
+// the tunnel consumer (ffmpeg) must never follow redirects on its own
+const alwaysSkippedHeaders = new Set(["location", "refresh"]);
 
 async function* readChunks(streamInfo, size) {
     let read = 0n, chunksSinceTransplant = 0;
@@ -34,6 +40,11 @@ async function* readChunks(streamInfo, size) {
         }
 
         chunksSinceTransplant++;
+
+        if (chunk.statusCode < 200 || chunk.statusCode > 299) {
+            chunk.body.dump().catch(() => {});
+            throw new Error(`unexpected status code ${chunk.statusCode}`);
+        }
 
         const expected = min(CHUNK_SIZE, size - read);
         const received = BigInt(chunk.headers['content-length']);
@@ -114,21 +125,32 @@ async function handleGenericStream(streamInfo, res) {
             },
             dispatcher: streamInfo.dispatcher,
             signal,
-            maxRedirections: 16
+            // redirects of generic media are resolved (and checked) during extraction
+            maxRedirections: isGenericService(streamInfo.service) ? 0 : 16
         });
 
-        res.status(fileResponse.statusCode);
         fileResponse.body.on('error', () => {});
 
-        const isHls = isHlsResponse(fileResponse, streamInfo);
+        const isOk = fileResponse.statusCode >= 200 && fileResponse.statusCode <= 299;
+        const isHls = isOk && isHlsResponse(fileResponse, streamInfo);
+
+        // a rewritten playlist is always sent in full and has a different
+        // length than the original, so size and range headers (e.g. from a
+        // 206 response to "range: bytes=0-") must not be passed through.
+        // otherwise ffmpeg reads a truncated playlist without #EXT-X-ENDLIST
+        // and treats the video as a live stream.
+        res.status(isHls ? 200 : fileResponse.statusCode);
 
         for (const [ name, value ] of Object.entries(fileResponse.headers)) {
-            if (!isHls || name.toLowerCase() !== 'content-length') {
+            const lowerName = name.toLowerCase();
+            if (alwaysSkippedHeaders.has(lowerName)) continue;
+
+            if (!isHls || !hlsSkippedHeaders.has(lowerName)) {
                 res.setHeader(name, value);
             }
         }
 
-        if (fileResponse.statusCode < 200 || fileResponse.statusCode > 299) {
+        if (!isOk) {
             return cleanup();
         }
 
@@ -143,9 +165,21 @@ async function handleGenericStream(streamInfo, res) {
     }
 }
 
-export function internalStream(streamInfo, res) {
+export async function internalStream(streamInfo, res) {
     if (streamInfo.headers) {
         streamInfo.headers.delete('icy-metadata');
+    }
+
+    // urls of generic tunnels (including hls segments from untrusted
+    // playlists) are checked before every request
+    if (isGenericService(streamInfo.service)) {
+        try {
+            await assertSafeURL(streamInfo.url);
+        } catch {
+            closeRequest(streamInfo.controller);
+            res.statusCode = 403;
+            return res.end();
+        }
     }
 
     if (serviceNeedsChunks.has(streamInfo.service) && !streamInfo.isHLS) {
@@ -156,6 +190,9 @@ export function internalStream(streamInfo, res) {
 }
 
 export async function probeInternalTunnel(streamInfo) {
+    // size probes would request untrusted urls outside of the checked path
+    if (isGenericService(streamInfo.service)) return;
+
     try {
         const signal = AbortSignal.timeout(3000);
         const headers = {

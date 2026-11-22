@@ -7,19 +7,19 @@ import { t } from "$lib/i18n/translations";
 import { createDialog } from "$lib/state/dialogs";
 
 import type { DialogInfo } from "$lib/types/dialog";
-import type { CobaltFileUrlType } from "$lib/types/api";
+import type { FetchrFileUrlType } from "$lib/types/api";
 
 type DownloadFileParams = {
     url?: string,
     file?: File,
-    urlType?: CobaltFileUrlType,
+    urlType?: FetchrFileUrlType,
 }
 
 type SavingDialogParams = {
     url?: string,
     file?: File,
     body?: string,
-    urlType?: CobaltFileUrlType,
+    urlType?: FetchrFileUrlType,
 }
 
 const openSavingDialog = ({ url, file, body, urlType }: SavingDialogParams) => {

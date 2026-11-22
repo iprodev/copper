@@ -1,13 +1,13 @@
 <script
     lang="ts"
     generics="
-        Context extends Exclude<keyof CobaltSettings, 'schemaVersion'>,
-        Id extends keyof CobaltSettings[Context]
+        Context extends Exclude<keyof FetchrSettings, 'schemaVersion'>,
+        Id extends keyof FetchrSettings[Context]
     "
 >
     import { get } from "svelte/store";
     import { t } from "$lib/i18n/translations";
-    import type { CobaltSettings } from "$lib/types/settings";
+    import type { FetchrSettings } from "$lib/types/settings";
 
     import settings, { updateSetting } from "$lib/state/settings";
     import { customInstanceWarning } from "$lib/api/safety-warning";

@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
 import { env } from "../config.js";
 
@@ -50,7 +50,9 @@ const verify = (jwt, ip) => {
 
     const verifySignature = sign(header, payload);
 
-    if (verifySignature !== signature) {
+    const expected = Buffer.from(verifySignature);
+    const received = Buffer.from(signature);
+    if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
         return false;
     }
 

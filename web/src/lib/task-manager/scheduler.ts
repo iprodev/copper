@@ -3,9 +3,9 @@ import { startWorker } from "$lib/task-manager/run-worker";
 import { addWorkerToQueue, currentTasks } from "$lib/state/task-manager/current-tasks";
 import { itemDone, itemError, itemRunning, queue } from "$lib/state/task-manager/queue";
 
-import type { CobaltPipelineItem } from "$lib/types/workers";
+import type { FetchrPipelineItem } from "$lib/types/workers";
 
-const startPipeline = (pipelineItem: CobaltPipelineItem) => {
+const startPipeline = (pipelineItem: FetchrPipelineItem) => {
     addWorkerToQueue(pipelineItem.workerId, {
         type: pipelineItem.worker,
         parentId: pipelineItem.parentId,

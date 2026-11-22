@@ -1,8 +1,8 @@
-import { type CobaltSettingsV3 } from "$lib/types/settings/v3";
+import { type FetchrSettingsV3 } from "$lib/types/settings/v3";
 
-export type CobaltSettingsV4 = Omit<CobaltSettingsV3, 'schemaVersion' | 'processing'> & {
+export type FetchrSettingsV4 = Omit<FetchrSettingsV3, 'schemaVersion' | 'processing'> & {
     schemaVersion: 4,
-    processing: Omit<CobaltSettingsV3['processing'], 'allowDefaultOverride' | 'seenOverrideWarning'> & {
+    processing: Omit<FetchrSettingsV3['processing'], 'allowDefaultOverride' | 'seenOverrideWarning'> & {
         customApiKey: string;
         enableCustomApiKey: boolean;
     };

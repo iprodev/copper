@@ -10,6 +10,8 @@ import { closeRequest } from "./shared.js";
 import { decryptStream, encryptStream } from "../misc/crypto.js";
 import { hashHmac } from "../security/secrets.js";
 import { zip } from "../misc/utils.js";
+import { getSafeDispatcher } from "../security/network.js";
+import { isGenericService } from "../processing/service-config.js";
 
 // optional dependency
 const freebind = env.freebindCIDR && await import('freebind').catch(() => {});
@@ -142,6 +144,10 @@ export function createInternalStream(url, obj = {}, isSubtitles) {
     let dispatcher = obj.dispatcher;
     if (obj.requestIP) {
         dispatcher = freebind?.dispatcherFromIP(obj.requestIP, { strict: false })
+    }
+
+    if (isGenericService(obj.service)) {
+        dispatcher = getSafeDispatcher();
     }
 
     const streamID = nanoid();

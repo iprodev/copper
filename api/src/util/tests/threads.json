@@ -1,0 +1,78 @@
+[
+    {
+        "name": "video",
+        "url": "https://www.threads.com/@instagram/post/DQNCKbZjq-v",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "redirect"
+        }
+    },
+    {
+        "name": "video (audio only)",
+        "url": "https://www.threads.com/@instagram/post/DQNCKbZjq-v",
+        "params": {
+            "downloadMode": "audio"
+        },
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "video (muted)",
+        "url": "https://www.threads.com/@instagram/post/DQNCKbZjq-v",
+        "params": {
+            "downloadMode": "mute"
+        },
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "photo",
+        "url": "https://www.threads.com/@natgeo/post/DbTBdl3kz2g",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "carousel",
+        "url": "https://www.threads.com/@zuck/post/DSVRshjkbtK",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "picker"
+        }
+    },
+    {
+        "name": "old threads.net domain",
+        "url": "https://www.threads.net/@instagram/post/DQNCKbZjq-v",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "redirect"
+        }
+    },
+    {
+        "name": "short permalink",
+        "url": "https://www.threads.com/t/DQNCKbZjq-v",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "redirect"
+        }
+    },
+    {
+        "name": "inexistent post",
+        "url": "https://www.threads.com/@instagram/post/XXXXXXXXXXX",
+        "params": {},
+        "expected": {
+            "code": 400,
+            "status": "error"
+        }
+    }
+]

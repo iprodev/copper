@@ -104,6 +104,12 @@ function aliasURL(url) {
             }
             break;
 
+        case "threads":
+            if (host.tld === "net") {
+                url.hostname = "www.threads.com";
+            }
+            break;
+
         case "redd":
             /* reddit short video links can be treated by changing https://v.redd.it/<id>
             to https://reddit.com/video/<id>.*/
@@ -119,6 +125,14 @@ function aliasURL(url) {
 function cleanURL(url) {
     assert(url instanceof URL);
     const host = psl.parse(url.hostname).sld;
+
+    // links to unsupported sites (for the generic extractor) are kept as
+    // they are, query strings may be required there. only credentials and
+    // fragments are removed.
+    if (!services[host]) {
+        url.username = url.password = url.hash = '';
+        return url;
+    }
 
     let stripQuery = true;
 
@@ -150,6 +164,11 @@ function cleanURL(url) {
         case "twitter":
             if (url.searchParams.get('post_id')) {
                 limitQuery('post_id');
+            }
+            break;
+        case "pornhub":
+            if (url.searchParams.get('viewkey')) {
+                limitQuery('viewkey');
             }
             break;
     }
@@ -189,6 +208,13 @@ export function normalizeURL(url) {
     );
 }
 
+// api keys with a list of allowed services need "generic" in it
+const genericAllowed = (enabledServices) => env.genericExtractor && (
+    enabledServices === env.enabledServices
+    || enabledServices === env.allServices
+    || enabledServices.has("generic")
+);
+
 export function extract(url, enabledServices = env.enabledServices) {
     if (!(url instanceof URL)) {
         url = new URL(url);
@@ -197,15 +223,13 @@ export function extract(url, enabledServices = env.enabledServices) {
     const host = getHostIfValid(url);
 
     if (!host) {
+        if (genericAllowed(enabledServices) && ['http:', 'https:'].includes(url.protocol)) {
+            return { host: "generic", patternMatch: { url: url.toString() } };
+        }
         return { error: "link.invalid" };
     }
 
     if (!enabledServices.has(host)) {
-        // show a different message when youtube is disabled on official instances
-        // as it only happens when shit hits the fan
-        if (new URL(env.apiURL).hostname.endsWith(".imput.net") && host === "youtube") {
-            return { error: "youtube.disabled_main_instance" };
-        }
         return { error: "service.disabled" };
     }
 

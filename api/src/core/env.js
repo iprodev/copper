@@ -6,6 +6,7 @@ import { FileWatcher } from "../misc/file-watcher.js";
 import { isURL } from "../misc/utils.js";
 import * as cluster from "../misc/cluster.js";
 import { Green, Yellow } from "../misc/console-text.js";
+import { parseServiceProxies, validateProxyURL } from "../misc/proxy.js";
 
 const forceLocalProcessingOptions = ["never", "session", "always"];
 const youtubeHlsOptions = ["never", "key", "always"];
@@ -53,7 +54,7 @@ export const loadEnvs = (env = process.env) => {
     for (const key of httpProxyVariables) {
         const value = env[key] ?? canonicalEnv[key];
         if (value !== undefined) {
-            process.env[key] = env[key];
+            process.env[key] = value;
         } else {
             delete process.env[key];
         }
@@ -95,13 +96,16 @@ export const loadEnvs = (env = process.env) => {
 
         externalProxy: env.API_EXTERNAL_PROXY,
 
+        // per-service proxies: "youtube=socks5://host:1080,instagram=direct"
+        serviceProxies: env.SERVICE_PROXIES,
+
         // used only for comparing against old values when envs are being updated
         httpProxyValues: httpProxyVariables.map(k => String(env[k])).join(''),
 
         turnstileSitekey: env.TURNSTILE_SITEKEY,
         turnstileSecret: env.TURNSTILE_SECRET,
         jwtSecret: env.JWT_SECRET,
-        jwtLifetime: env.JWT_EXPIRY || 120,
+        jwtLifetime: (env.JWT_EXPIRY && parseInt(env.JWT_EXPIRY)) || 120,
 
         sessionEnabled: env.TURNSTILE_SITEKEY
                             && env.TURNSTILE_SECRET
@@ -125,6 +129,9 @@ export const loadEnvs = (env = process.env) => {
 
         // "never" | "session" | "always"
         forceLocalProcessing: env.FORCE_LOCAL_PROCESSING ?? "never",
+
+        // generic extractor for links from any site, disabled by default
+        genericExtractor: env.ENABLE_GENERIC_EXTRACTOR === "1",
 
         // "never" | "key" | "always"
         enableDeprecatedYoutubeHls: env.ENABLE_DEPRECATED_YOUTUBE_HLS ?? "never",
@@ -175,6 +182,23 @@ export const validateEnvs = async (env) => {
         throw new Error('freebind is not available when external proxy is enabled')
     }
 
+    for (const key of ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]) {
+        if (process.env[key]) validateProxyURL(process.env[key]);
+    }
+
+    if (env.externalProxy) {
+        validateProxyURL(env.externalProxy);
+    }
+
+    if (env.serviceProxies) {
+        if (env.freebindCIDR) {
+            throw new Error('SERVICE_PROXIES is not available when freebind is enabled');
+        }
+
+        // throws on unknown services and invalid proxy urls
+        parseServiceProxies(env.serviceProxies, new Set([...env.allServices, "generic"]));
+    }
+
     if (env.externalProxy && !loggedProxyWarning) {
         console.error('API_EXTERNAL_PROXY is deprecated and will be removed in a future release.');
         console.error('Use HTTP_PROXY or HTTPS_PROXY instead.');
@@ -187,25 +211,34 @@ export const validateEnvs = async (env) => {
     return env;
 }
 
-const reloadEnvs = async (contents) => {
+export const parseEnvFile = (contents) => {
     const newEnvs = {};
-    const resolvedContents = await contents;
 
-    for (let line of resolvedContents.split('\n')) {
+    for (let line of contents.split('\n')) {
         line = line.trim();
-        if (line === '') {
+        if (line === '' || line.startsWith('#')) {
             continue;
         }
 
         let [ key, value ] = line.split(/=(.+)?/);
+        key = key?.trim();
+        value = value?.trim();
+
         if (key) {
-            if (value.match(/^['"]/) && value.match(/['"]$/)) {
-                value = JSON.parse(value);
+            if (value && value.length >= 2 && /^(['"]).*\1$/.test(value)) {
+                value = value[0] === '"' ? JSON.parse(value) : value.slice(1, -1);
             }
 
             newEnvs[key] = value || '';
         }
     }
+
+    return newEnvs;
+}
+
+const reloadEnvs = async (contents) => {
+    const resolvedContents = await contents;
+    const newEnvs = parseEnvFile(resolvedContents);
 
     const candidate = {
         ...canonicalEnv,
@@ -265,7 +298,7 @@ const setupWatcherFromFile = (path) => {
 
 const setupWatcherFromFetch = (url) => {
     const load = () => wrapReload(fetch(url).then(r => r.text()));
-    setInterval(load, currentEnv.envRemoteReloadInterval);
+    setInterval(load, currentEnv.envRemoteReloadInterval * 1000);
     load();
 }
 

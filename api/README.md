@@ -1,13 +1,13 @@
-# cobalt api
-this directory includes the source code for cobalt api. it's made with [express.js](https://www.npmjs.com/package/express) and love!
+# fetchr api
+this directory includes the source code for fetchr api. it's made with [express.js](https://www.npmjs.com/package/express) and love!
 
 ## running your own instance
 if you want to run your own instance for whatever purpose, [follow this guide](/docs/run-an-instance.md).
-we recommend to use docker compose unless you intend to run cobalt for developing/debugging purposes.
+we recommend to use docker compose unless you intend to run fetchr for developing/debugging purposes.
 
 ## accessing the api
 there is currently no publicly available pre-hosted api.
-we recommend [deploying your own instance](/docs/run-an-instance.md) if you wish to use the cobalt api.
+we recommend [deploying your own instance](/docs/run-an-instance.md) if you wish to use the fetchr api.
 
 you can read [the api documentation here](/docs/api.md).
 
@@ -17,6 +17,7 @@ if the desired service isn't supported yet, feel free to create an appropriate i
 
 | service           | video + audio | only audio | only video | metadata | rich file names |
 | :--------         | :-----------: | :--------: | :--------: | :------: | :-------------: |
+| beeg              | ✅            | ✅         | ✅         | ✅         | ✅              |
 | bilibili          | ✅            | ✅         | ✅         | ➖         | ➖              |
 | bluesky           | ✅            | ✅         | ✅         | ➖         | ➖              |
 | dailymotion       | ✅            | ✅         | ✅         | ✅         | ✅              |
@@ -26,17 +27,20 @@ if the desired service isn't supported yet, feel free to create an appropriate i
 | newgrounds        | ✅            | ✅         | ✅         | ✅         | ✅              |
 | ok.ru             | ✅            | ❌         | ✅         | ✅         | ✅              |
 | pinterest         | ✅            | ✅         | ✅         | ➖         | ➖              |
+| pornhub           | ✅            | ✅         | ✅         | ✅         | ✅              |
 | reddit            | ✅            | ✅         | ✅         | ❌         | ❌              |
 | rutube            | ✅            | ✅         | ✅         | ✅         | ✅              |
 | snapchat          | ✅            | ✅         | ✅         | ➖         | ➖              |
 | soundcloud        | ➖            | ✅         | ➖         | ✅         | ✅              |
 | streamable        | ✅            | ✅         | ✅         | ➖         | ➖              |
+| threads           | ✅            | ✅         | ✅         | ➖         | ➖              |
 | tiktok            | ✅            | ✅         | ✅         | ❌         | ❌              |
 | tumblr            | ✅            | ✅         | ✅         | ➖         | ➖              |
 | twitch clips      | ✅            | ✅         | ✅         | ✅         | ✅              |
 | twitter/x         | ✅            | ✅         | ✅         | ➖         | ➖              |
 | vimeo             | ✅            | ✅         | ✅         | ✅         | ✅              |
 | vk videos & clips | ✅            | ❌         | ✅         | ✅         | ✅              |
+| xvideos           | ✅            | ✅         | ✅         | ✅         | ✅              |
 | youtube           | ✅            | ✅         | ✅         | ✅         | ✅              |
 
 | emoji   | meaning                 |
@@ -51,17 +55,25 @@ if the desired service isn't supported yet, feel free to create an appropriate i
 | instagram  | supports reels, photos, and videos. lets you pick what to save from multi-media posts.                               |
 | facebook   | supports public accessible videos content only.                                                                      |
 | pinterest  | supports photos, gifs, videos and stories.                                                                           |
+| pornhub    | may be unavailable in regions with age verification laws, depending on where the instance is hosted.               |
+| beeg       | may be unavailable in regions with age verification laws, depending on where the instance is hosted.               |
 | reddit     | supports gifs and videos.                                                                                            |
-| snapchat   | supports spotlights and stories. lets you pick what to save from stories.                                            |
+| snapchat   | supports spotlights, stories and profiles. lets you pick what to save from stories.                                 |
 | rutube     | supports yappy & private links.                                                                                      |
 | soundcloud | supports private links.                                                                                              |
+| threads    | supports videos and photos. lets you pick what to save from multi-media posts.                                     |
 | tiktok     | supports videos with or without watermark, images from slideshow without watermark, and full (original) audios.      |
 | twitter/x  | lets you pick what to save from multi-media posts. may not be 100% reliable due to current management.               |
 | vimeo      | audio downloads are only available for dash.                                                                         |
 | youtube    | supports videos, music, and shorts. 8K, 4K, HDR, VR, and high FPS videos. rich metadata & dubs. h264/av1/vp9 codecs. |
 
+### other websites
+links from sites without a dedicated service can be handled by the generic extractor, which looks for video, audio or images on the page. it's disabled by default, see [`ENABLE_GENERIC_EXTRACTOR`](/docs/api-env-variables.md#enable_generic_extractor) before enabling it.
+
 ## license
-cobalt api code is licensed under [AGPL-3.0](LICENSE).
+fetchr api code is licensed under [AGPL-3.0](LICENSE).
+
+fetchr is a modified version of [cobalt](https://github.com/imputnet/cobalt) by [imput](https://imput.net/), which is also licensed under AGPL-3.0.
 
 this license allows you to modify, distribute and use the code for any purpose
 as long as you:
@@ -71,33 +83,33 @@ as long as you:
 
 ## open source acknowledgements
 ### ffmpeg
-cobalt relies on ffmpeg for muxing and encoding media files. ffmpeg is absolutely spectacular and we're privileged to have the ability to use it for free, just like anyone else. we believe it should be way more recognized.
+fetchr relies on ffmpeg for muxing and encoding media files. ffmpeg is absolutely spectacular and we're privileged to have the ability to use it for free, just like anyone else. we believe it should be way more recognized.
 
 you can [support ffmpeg here](https://ffmpeg.org/donations.html)!
 
 ### youtube.js
-cobalt relies on **[youtube.js](https://github.com/LuanRT/YouTube.js)** for interacting with youtube's innertube api, it wouldn't have been possible without this package.
+fetchr relies on **[youtube.js](https://github.com/LuanRT/YouTube.js)** for interacting with youtube's innertube api, it wouldn't have been possible without this package.
 
 you can support the developer via various methods listed on their github page!
 (linked above)
 
 ### many others
-cobalt-api also depends on:
+fetchr-api also depends on:
 
 - **[content-disposition-header](https://www.npmjs.com/package/content-disposition-header)** to simplify the provision of `content-disposition` headers.
 - **[cors](https://www.npmjs.com/package/cors)** to manage cross-origin resource sharing within expressjs.
 - **[dotenv](https://www.npmjs.com/package/dotenv)** to load environment variables from the `.env` file.
-- **[express](https://www.npmjs.com/package/express)** as the backbone of cobalt servers.
+- **[express](https://www.npmjs.com/package/express)** as the backbone of fetchr servers.
 - **[express-rate-limit](https://www.npmjs.com/package/express-rate-limit)** to rate limit api endpoints.
 - **[ffmpeg-static](https://www.npmjs.com/package/ffmpeg-static)** to get binaries for ffmpeg depending on the platform.
 - **[hls-parser](https://www.npmjs.com/package/hls-parser)** to parse HLS playlists according to spec (very impressive stuff).
 - **[ipaddr.js](https://www.npmjs.com/package/ipaddr.js)** to parse ip addresses (used for rate limiting).
 - **[nanoid](https://www.npmjs.com/package/nanoid)** to generate unique identifiers for each requested tunnel.
-- **[set-cookie-parser](https://www.npmjs.com/package/set-cookie-parser)** to parse cookies that cobalt receives from certain services.
+- **[set-cookie-parser](https://www.npmjs.com/package/set-cookie-parser)** to parse cookies that fetchr receives from certain services.
 - **[undici](https://www.npmjs.com/package/undici)** for making http requests.
 - **[url-pattern](https://www.npmjs.com/package/url-pattern)** to match provided links with supported patterns.
 - **[zod](https://www.npmjs.com/package/zod)** to lock down the api request schema.
 - **[@datastructures-js/priority-queue](https://www.npmjs.com/package/@datastructures-js/priority-queue)** for sorting stream caches for future clean up (without redis).
-- **[@imput/psl](https://www.npmjs.com/package/@imput/psl)** as the domain name parser, our fork of [psl](https://www.npmjs.com/package/psl).
+- **[@imput/psl](https://www.npmjs.com/package/@imput/psl)** as the domain name parser, imput's fork of [psl](https://www.npmjs.com/package/psl).
 
 ...and many other packages that these packages rely on.

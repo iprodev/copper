@@ -1,9 +1,21 @@
 import UrlPattern from "url-pattern";
 
 export const audioIgnore = new Set(["vk", "ok", "loom"]);
-export const hlsExceptions = new Set(["dailymotion", "vimeo", "rutube", "bsky", "youtube"]);
+export const hlsExceptions = new Set(["dailymotion", "vimeo", "rutube", "bsky", "youtube", "loom", "pornhub", "xvideos", "beeg", "pinterest", "generic"]);
+
+// the generic extractor handles user-provided urls from any site, so its
+// tunnels go through the ssrf guard (security/network.js)
+export const isGenericService = (service) =>
+    service === "generic" || String(service).startsWith("generic-");
+
+// services whose hls files are signed with query params
+// that must be carried over to every relative uri
+export const hlsSignedQuery = new Set(["loom"]);
 
 export const services = {
+    beeg: {
+        patterns: [":id"],
+    },
     bilibili: {
         patterns: [
             "video/:comId",
@@ -81,6 +93,13 @@ export const services = {
             "audio/listen/:audioId",
         ]
     },
+    pornhub: {
+        patterns: [
+            "view_video.php?viewkey=:id",
+            "embed/:id",
+        ],
+        subdomains: "*",
+    },
     reddit: {
         patterns: [
             "comments/:id",
@@ -116,6 +135,8 @@ export const services = {
     },
     snapchat: {
         patterns: [
+            "@:username/spotlight/:spotlightId",
+            "@:username",
             ":shortLink",
             "spotlight/:spotlightId",
             "add/:username/:storyId",
@@ -141,6 +162,13 @@ export const services = {
             "o/:id",
             "e/:id",
             "s/:id"
+        ],
+    },
+    threads: {
+        patterns: [
+            "@:user/post/:id",
+            "@:user/post/:id/media",
+            "t/:id",
         ],
     },
     tiktok: {
@@ -204,6 +232,15 @@ export const services = {
         ],
         subdomains: ["m"],
         altDomains: ["vkvideo.ru", "vk.ru"],
+    },
+    xvideos: {
+        patterns: [
+            "video.:id/:slug",
+            "video.:id",
+            "video:id/:slug",
+            "video:id",
+        ],
+        subdomains: "*",
     },
     youtube: {
         patterns: [

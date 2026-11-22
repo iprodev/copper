@@ -1,4 +1,4 @@
-# cobalt api instance environment variables
+# fetchr api instance environment variables
 you can customize your processing instance's behavior using these environment variables. all of them but `API_URL` are optional.
 this document is not final and will expand over time. feel free to improve it!
 
@@ -12,6 +12,7 @@ this document is not final and will expand over time. feel free to improve it!
 | API_INSTANCE_COUNT     |         | `6`                                   |
 | API_REDIS_URL          |         | `redis://localhost:6379`              |
 | DISABLED_SERVICES      |         | `bilibili,youtube`                    |
+| ENABLE_GENERIC_EXTRACTOR |       | `1`                                   |
 | FORCE_LOCAL_PROCESSING | `never` | `always`                              |
 | API_ENV_FILE           |         | `/.env`                               |
 
@@ -22,12 +23,13 @@ this document is not final and will expand over time. feel free to improve it!
 |:--------------------|:----------|:--------------------------------------|
 | API_LISTEN_ADDRESS  | `0.0.0.0` | `127.0.0.1`                           |
 | FREEBIND_CIDR       |           | `2001:db8::/32`                       |
+| SERVICE_PROXIES     |           | `youtube=socks5://10.0.0.3:1080`      |
 
 #### undici proxy vars
 | name        | value example                         |
 |:------------|:--------------------------------------|
 | HTTP_PROXY  | `http://user:password@10.0.0.1:1337/` |
-| HTTPS_PROXY | `https://10.0.0.2:1337/`              |
+| HTTPS_PROXY | `socks5://user:password@10.0.0.2:1080` |
 | NO_PROXY    | `localhost`                           |
 
 [*view details*](#networking)
@@ -89,7 +91,7 @@ port from which the API server will be accessible.
 the value is a number from 1024 to 65535.
 
 ### COOKIE_PATH
-path to the `cookies.json` file relative to the current working directory of your cobalt instance (usually the main (src/api) folder).
+path to the `cookies.json` file relative to the current working directory of your fetchr instance (usually the main (src/api) folder).
 
 ### PROCESSING_PRIORITY
 `nice` value for ffmpeg subprocesses. available only on unix systems.
@@ -99,19 +101,26 @@ note: the higher the nice value, the lower the priority. you can [read more abou
 the value is a number.
 
 ### API_INSTANCE_COUNT
-supported only on linux and node.js `>=23.1.0`. when configured, cobalt will spawn multiple sub-instances amongst which requests will be balanced. `API_REDIS_URL` is required to use this option.
+supported only on linux and node.js `>=23.1.0`. when configured, fetchr will spawn multiple sub-instances amongst which requests will be balanced. `API_REDIS_URL` is required to use this option.
 
 the value is a number.
 
 ### API_REDIS_URL
-when configured, cobalt will use this redis instance for tunnel cache. required when `API_INSTANCE_COUNT` is more than 1, because else sub-instance wouldn't be able to share cache.
+when configured, fetchr will use this redis instance for tunnel cache. required when `API_INSTANCE_COUNT` is more than 1, because else sub-instance wouldn't be able to share cache.
 
 the value is a URL.
 
 ### DISABLED_SERVICES
 comma-separated list which disables certain services from being used.
 
-the value is a string of cobalt-supported services.
+the value is a string of fetchr-supported services.
+
+### ENABLE_GENERIC_EXTRACTOR
+when set to `1`, links from sites that don't have a dedicated service are handled by the generic extractor. it looks for media on the page (schema.org `VideoObject`, `og:video`, `<video>`/`<audio>` tags and direct links to media files), and also accepts direct links to media files and hls playlists. disabled by default.
+
+**security:** this makes your instance request urls provided by users. every request (including redirects, hls playlists and their segments) is checked, and only `http`/`https` on ports 80 and 443 to public ip addresses is allowed. loopback, private networks, link-local addresses (such as cloud metadata endpoints) and other reserved ranges are refused. if your instance uses a proxy, the proxy resolves hostnames, so make sure it doesn't allow access to internal networks either.
+
+api keys with an `allowedServices` list need `generic` in it to use the generic extractor.
 
 ### FORCE_LOCAL_PROCESSING
 the value is a string: `never` (default), `session`, or `always`:
@@ -120,7 +129,7 @@ the value is a string: `never` (default), `session`, or `always`:
 - when set to `always`, all requests will be forced to use on-device processing, no matter the preference.
 
 ### API_ENV_FILE
-the URL or local path to a `key=value`-style environment variable file. this is used for dynamically reloading environment variables. **not all environment variables are able to be updated by this.** (e.g. the ratelimiters are instantiated when starting cobalt, and cannot be changed)
+the URL or local path to a `key=value`-style environment variable file. this is used for dynamically reloading environment variables. **not all environment variables are able to be updated by this.** (e.g. the ratelimiters are instantiated when starting fetchr, and cannot be changed)
 
 ## networking
 [*jump to the table*](#networking-vars)
@@ -131,33 +140,57 @@ defines the local address for the api instance. if you are using a docker contai
 the value is a local IP address.
 
 ### HTTP_PROXY, HTTPS_PROXY, NO_PROXY
-URL of the proxy that will be passed to [`EnvHttpProxyAgent`](https://undici.nodejs.org/#/docs/api/EnvHttpProxyAgent) for proxying external requests. if some cobalt functionality breaks when using a proxy, please [make a new issue](https://github.com/imputnet/cobalt/issues) about it!
+URL of the proxy used for external requests. if some fetchr functionality breaks when using a proxy, please [make a new issue](https://github.com/iprodev/fetchr/issues) about it!
 
-quoted from [undici docs](https://undici.nodejs.org/#/docs/api/EnvHttpProxyAgent):
-> When `HTTP_PROXY` and `HTTPS_PROXY` are set, `HTTP_PROXY` is used for HTTP requests and `HTTPS_PROXY` is used for HTTPS requests. If only `HTTP_PROXY` is set, `HTTP_PROXY` is used for both HTTP and HTTPS requests. If only `HTTPS_PROXY` is set, it is only used for HTTPS requests.
+supported proxy types:
+- `http://` and `https://`: regular http proxies (passed to undici's [`EnvHttpProxyAgent`](https://undici.nodejs.org/#/docs/api/EnvHttpProxyAgent)).
+- `socks5://` (also `socks://` and `socks5h://`) and `socks4://` (also `socks4a://`): socks proxies. hostnames are resolved by the proxy, so dns requests don't leak from your server. the default port is `1080`.
 
-> `NO_PROXY` is a comma or space-separated list of hostnames that should not be proxied. The list may contain leading wildcard characters (`*`). If `NO_PROXY` is set, the EnvHttpProxyAgent() will bypass the proxy for requests to hosts that match the list. If `NO_PROXY` is set to `"*"`, the EnvHttpProxyAgent() will bypass the proxy for all requests.
+credentials go in the URL (`socks5://user:password@host:1080`). special characters in them must be [url-encoded](https://developer.mozilla.org/en-US/docs/Glossary/Percent-encoding), for example `p@ss` becomes `p%40ss`.
+
+when `HTTP_PROXY` and `HTTPS_PROXY` are both set, `HTTP_PROXY` is used for http requests and `HTTPS_PROXY` is used for https requests. if only `HTTP_PROXY` is set, it's used for both. if only `HTTPS_PROXY` is set, it's only used for https requests (almost every request fetchr makes is https).
+
+`NO_PROXY` is a comma or space-separated list of hostnames that should not be proxied. the list may contain leading wildcard characters (`*`), and entries may end with a port (`example.com:8080`). if `NO_PROXY` is set to `"*"`, the proxy is bypassed for all requests.
+
+to use a proxy only for some services, see [`SERVICE_PROXIES`](#service_proxies).
 
 the value is a string:
-- `HTTP_PROXY`/`HTTPS_PROXY`: URL or hostname.
+- `HTTP_PROXY`/`HTTPS_PROXY`: URL. fetchr refuses to start if it's not a valid proxy URL.
 - `NO_PROXY`: comma or space-separated list of hostnames.
+
+### SERVICE_PROXIES
+proxies for specific services. useful when only some services block your server's ip address (for example youtube or instagram blocking datacenter ips), so that other services keep using a direct connection (or the general proxy).
+
+the value is a list of `service=proxy` entries, separated by commas, semicolons, spaces or new lines:
+```
+SERVICE_PROXIES="youtube=socks5://user:password@10.0.0.3:1080, instagram=http://10.0.0.4:8080, tiktok=direct"
+```
+
+- `service` is a service name as it's used in [`DISABLED_SERVICES`](#disabled_services) (`youtube`, `instagram`, `bsky`, ...), or `generic` for the generic extractor.
+- `proxy` is a proxy URL of any type supported by [`HTTP_PROXY`](#http_proxy-https_proxy-no_proxy) (`http`, `https`, `socks4`, `socks5`), or `direct` to make the service skip the general proxy and connect directly.
+
+the proxy is used for every request of the service: while extracting media info, and while tunneling or remuxing the media itself. services that aren't in the list use `HTTP_PROXY`/`HTTPS_PROXY` (if set), or a direct connection. `NO_PROXY` only applies to the general proxy.
+
+fetchr refuses to start if an entry is invalid or names an unknown service. `SERVICE_PROXIES` can't be used together with [`FREEBIND_CIDR`](#freebind_cidr).
+
+**security:** when the generic extractor uses a proxy (through `SERVICE_PROXIES` or the general proxy), the proxy resolves hostnames, so make sure it doesn't allow access to your internal networks.
 
 ### API_EXTERNAL_PROXY (deprecated)
 > [!WARNING]
 > this env variable is deprecated and will be removed in a future release. please update your configuration to use `HTTP_PROXY` or `HTTPS_PROXY`, as mentioned above.
 
-URL of the proxy that will be passed to [`EnvHttpProxyAgent`](https://undici.nodejs.org/#/docs/api/EnvHttpProxyAgent) and used for proxying external requests. HTTP(S) only.
+URL of the proxy used for external requests. supports the same proxy types as `HTTP_PROXY`, and is used for both http and https requests.
 
 the value is a URL.
 
 ### FREEBIND_CIDR
-IPv6 prefix used for randomly assigning addresses to cobalt requests. available only on linux systems.
+IPv6 prefix used for randomly assigning addresses to fetchr requests. available only on linux systems.
 
-setting a `FREEBIND_CIDR` allows cobalt to pick a random IP for every download and use it for all requests it makes for that particular download.
+setting a `FREEBIND_CIDR` allows fetchr to pick a random IP for every download and use it for all requests it makes for that particular download.
 
-to use freebind in cobalt, you need to follow its [setup instructions](https://github.com/imputnet/freebind.js?tab=readme-ov-file#setup) first.
+to use freebind in fetchr, you need to follow its [setup instructions](https://github.com/imputnet/freebind.js?tab=readme-ov-file#setup) first.
 
-if you want to use this option and run cobalt in a docker container, you also need to set the `API_LISTEN_ADDRESS` env variable to `127.0.0.1` and set `network_mode` for the container to `host`.
+if you want to use this option and run fetchr in a docker container, you also need to set the `API_LISTEN_ADDRESS` env variable to `127.0.0.1` and set `network_mode` for the container to `host`.
 
 the value is an IPv6 range.
 
@@ -238,14 +271,14 @@ the secret used for issuing JWT tokens for request authentication. the value mus
 the value is a specific key.
 
 ### JWT_EXPIRY
-the duration of how long a cobalt-issued JWT token will remain valid, in seconds.
+the duration of how long a fetchr-issued JWT token will remain valid, in seconds.
 
 the value is a number.
 
 ### API_KEY_URL
 the URL to the the external or local key database. for local files you have to specify a local path using the `file://` protocol.
 
-see [the api key section](/docs/protect-an-instance.md#api-key-file-format) in the "how to protect your cobalt instance" document for more details.
+see [the api key section](/docs/protect-an-instance.md#api-key-file-format) in the "how to protect your fetchr instance" document for more details.
 
 the value is a URL.
 
@@ -274,13 +307,13 @@ the value is a string.
 
 ### YOUTUBE_PLAYER_ID
 a comma-separated-list of player IDs to use for youtube fetching.
-if defined, cobalt chooses one of them at each client initialization, otherwise
+if defined, fetchr chooses one of them at each client initialization, otherwise
 defaults to the current latest player ID.
 
 the value is a string.
 
 ### YOUTUBE_ALLOW_BETTER_AUDIO
-when set to `1`, cobalt will try to use higher quality audio if user requests it via `youtubeBetterAudio`. will negatively impact the rate limit of a secondary youtube client with a session.
+when set to `1`, fetchr will try to use higher quality audio if user requests it via `youtubeBetterAudio`. will negatively impact the rate limit of a secondary youtube client with a session.
 
 the value is a number, either `0` or `1`.
 

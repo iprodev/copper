@@ -1,42 +1,42 @@
-import type { CobaltSaveRequestBody } from "$lib/types/api";
-import type { CobaltPipelineItem, CobaltPipelineResultFileType } from "$lib/types/workers";
+import type { FetchrSaveRequestBody } from "$lib/types/api";
+import type { FetchrPipelineItem, FetchrPipelineResultFileType } from "$lib/types/workers";
 
 export type UUID = string;
 
-type CobaltQueueBaseItem = {
+type FetchrQueueBaseItem = {
     id: UUID,
-    pipeline: CobaltPipelineItem[],
+    pipeline: FetchrPipelineItem[],
     canRetry?: boolean,
-    originalRequest?: CobaltSaveRequestBody,
+    originalRequest?: FetchrSaveRequestBody,
     filename: string,
     mimeType?: string,
-    mediaType: CobaltPipelineResultFileType,
+    mediaType: FetchrPipelineResultFileType,
 };
 
-type CobaltQueueItemWaiting = CobaltQueueBaseItem & {
+type FetchrQueueItemWaiting = FetchrQueueBaseItem & {
     state: "waiting",
 };
 
-export type CobaltQueueItemRunning = CobaltQueueBaseItem & {
+export type FetchrQueueItemRunning = FetchrQueueBaseItem & {
     state: "running",
     pipelineResults: Record<UUID, File>,
 };
 
-type CobaltQueueItemDone = CobaltQueueBaseItem & {
+type FetchrQueueItemDone = FetchrQueueBaseItem & {
     state: "done",
     resultFile: File,
 };
 
-type CobaltQueueItemError = CobaltQueueBaseItem & {
+type FetchrQueueItemError = FetchrQueueBaseItem & {
     state: "error",
     errorCode: string,
 };
 
-export type CobaltQueueItem = CobaltQueueItemWaiting
-                            | CobaltQueueItemRunning
-                            | CobaltQueueItemDone
-                            | CobaltQueueItemError;
+export type FetchrQueueItem = FetchrQueueItemWaiting
+                            | FetchrQueueItemRunning
+                            | FetchrQueueItemDone
+                            | FetchrQueueItemError;
 
-export type CobaltQueue = {
-    [id: UUID]: CobaltQueueItem,
+export type FetchrQueue = {
+    [id: UUID]: FetchrQueueItem,
 };

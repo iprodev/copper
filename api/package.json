@@ -1,47 +1,49 @@
 {
-    "name": "@imput/cobalt-api",
+    "name": "@fetchr/api",
     "description": "save what you love",
-    "version": "11.7.1",
-    "author": "imput",
-    "exports": "./src/cobalt.js",
+    "version": "1.0.0",
+    "author": "iProDev",
+    "exports": "./src/fetchr.js",
     "type": "module",
     "engines": {
-        "node": ">=18.17"
+        "node": ">=22 <26"
     },
     "scripts": {
-        "start": "node src/cobalt",
+        "start": "node src/fetchr",
         "test": "node src/util/test",
+        "test:unit": "node --import ./tests/setup.js --test \"tests/**/*.test.js\"",
         "token:jwt": "node src/util/generate-jwt-secret"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/imputnet/cobalt.git"
+        "url": "git+https://github.com/iprodev/fetchr.git"
     },
     "license": "AGPL-3.0",
     "bugs": {
-        "url": "https://github.com/imputnet/cobalt/issues"
+        "url": "https://github.com/iprodev/fetchr/issues"
     },
-    "homepage": "https://github.com/imputnet/cobalt#readme",
+    "homepage": "https://github.com/iprodev/fetchr#readme",
     "dependencies": {
-        "@datastructures-js/priority-queue": "^6.3.5",
+        "@datastructures-js/priority-queue": "^6.4.0",
+        "@fetchr/version-info": "workspace:^",
         "@imput/psl": "^2.0.4",
-        "@imput/version-info": "workspace:^",
         "content-disposition-header": "0.6.0",
-        "cors": "^2.8.5",
-        "dotenv": "^17.2.3",
-        "express": "^4.22.1",
-        "express-rate-limit": "^8.3.2",
+        "cors": "^2.8.6",
+        "dotenv": "^17.4.2",
+        "express": "^4.22.3",
+        "express-rate-limit": "^8.7.5",
         "ffmpeg-static": "^5.3.0",
-        "hls-parser": "^0.16.0",
+        "hls-parser": "^0.16.1",
         "ipaddr.js": "2.3.0",
-        "isolated-vm": "^6.0.2",
-        "mime": "^4.1.0",
-        "nanoid": "^5.1.6",
+        "isolated-vm": "^6.2.0",
+        "mime": "^4.1.2",
+        "nanoid": "^5.1.16",
         "set-cookie-parser": "2.7.2",
-        "undici": "^6.24.1",
+        "socks": "2.8.10",
+        "undici": "^6.29.1",
         "url-pattern": "1.0.3",
         "youtubei.js": "17.0.1",
-        "zod": "^4.2.1"
+        "zod": "^4.6.7"
     },
     "optionalDependencies": {
         "freebind": "^0.2.3",

@@ -1,11 +1,11 @@
 services:
-    cobalt:
-        image: ghcr.io/imputnet/cobalt:11
+    fetchr:
+        image: ghcr.io/iprodev/fetchr:1
 
         init: true
         read_only: true
         restart: unless-stopped
-        container_name: cobalt
+        container_name: fetchr
 
         ports:
             - 9000:9000/tcp
@@ -25,20 +25,32 @@ services:
             # it's recommended to configure bot protection or api keys if the instance is public,
             # see /docs/protect-an-instance.md for more info
 
+            # newgrounds blocks automated requests with a browser check,
+            # so it's disabled. remove it from the list to enable it again
+            DISABLED_SERVICES: "newgrounds"
+
+            # uncomment to allow links from any site (generic extractor),
+            # read docs/api-env-variables.md#enable_generic_extractor first
+            # ENABLE_GENERIC_EXTRACTOR: "1"
+
+            # uncomment to send requests of some services through a proxy
+            # (http, https, socks4 or socks5), read docs/api-env-variables.md#service_proxies
+            # SERVICE_PROXIES: "youtube=socks5://user:password@10.0.0.3:1080"
+
             # see /docs/run-an-instance.md for more variables that you can use here
 
         labels:
-            - com.centurylinklabs.watchtower.scope=cobalt
+            - com.centurylinklabs.watchtower.scope=fetchr
 
         # uncomment only if you use the COOKIE_PATH variable
         # volumes:
             # - ./cookies.json:/cookies.json
 
-    # watchtower updates the cobalt image automatically
+    # watchtower updates the fetchr image automatically
     watchtower:
         image: ghcr.io/containrrr/watchtower
         restart: unless-stopped
-        command: --cleanup --scope cobalt --interval 900 --include-restarting
+        command: --cleanup --scope fetchr --interval 900 --include-restarting
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
 
@@ -50,4 +62,4 @@ services:
     #     restart: unless-stopped
     #     container_name: yt-session-generator
     #     labels:
-    #       - com.centurylinklabs.watchtower.scope=cobalt
+    #       - com.centurylinklabs.watchtower.scope=fetchr

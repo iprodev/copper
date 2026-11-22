@@ -100,6 +100,7 @@ export default function({
             responseType = "picker";
             switch (host) {
                 case "instagram":
+                case "threads":
                 case "twitter":
                 case "snapchat":
                 case "bsky":
@@ -180,11 +181,14 @@ export default function({
 
                 case "ok":
                 case "newgrounds":
+                case "xvideos":
                     params = { type: "proxy" };
                     break;
 
                 case "facebook":
                 case "instagram":
+                case "threads":
+                case "generic":
                 case "tumblr":
                 case "pinterest":
                 case "streamable":

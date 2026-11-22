@@ -1,0 +1,31 @@
+[
+    {
+        "name": "video",
+        "url": "https://beeg.com/-0786924192839399",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "video (audio only)",
+        "url": "https://beeg.com/-0786924192839399",
+        "params": {
+            "downloadMode": "audio"
+        },
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "inexistent video",
+        "url": "https://beeg.com/-0999999999999999",
+        "params": {},
+        "expected": {
+            "code": 400,
+            "status": "error"
+        }
+    }
+]

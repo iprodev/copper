@@ -1,12 +1,12 @@
 <script
     lang="ts"
     generics="
-        Context extends Exclude<keyof CobaltSettings, 'schemaVersion'>,
-        Id extends keyof CobaltSettings[Context]
+        Context extends Exclude<keyof FetchrSettings, 'schemaVersion'>,
+        Id extends keyof FetchrSettings[Context]
     "
 >
     import { updateSetting } from "$lib/state/settings";
-    import type { CobaltSettings } from "$lib/types/settings";
+    import type { FetchrSettings } from "$lib/types/settings";
 
     import { hapticConfirm, hapticSwitch } from "$lib/haptics";
     import IconSelector from "@tabler/icons-svelte/IconSelector.svelte";

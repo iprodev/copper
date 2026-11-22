@@ -1,5 +1,6 @@
 <script lang="ts">
     import { t } from "$lib/i18n/translations";
+    import { contacts } from "$lib/env";
     import SectionHeading from "$components/misc/SectionHeading.svelte";
 </script>
 
@@ -9,7 +10,7 @@
     sectionId="general"
 />
 
-these terms are applicable only when using the official cobalt instance.
+these terms are applicable only when using the official fetchr instance.
 in other cases, you may need to contact the instance hoster for accurate info.
 </section>
 
@@ -50,10 +51,8 @@ fair use and credits benefit everyone.
     sectionId="abuse"
 />
 
-we have no way of detecting abusive behavior automatically because cobalt is fully anonymous.
-however, you can report such activities to us via email and we'll do our best to comply manually: abuse[at]imput.net
+we have no way of detecting abusive behavior automatically because fetchr is fully anonymous.
+however, you can report such activities to us [on github]({contacts.github}) and we'll do our best to comply manually.
 
-**this email is not intended for user support, you will not get a response if your concern is not related to abuse.**
-
-if you're experiencing issues, you can reach out for support via any preferred method on [the community page](/about/community).
+if you're experiencing issues with fetchr, you can also report them [on github]({contacts.github}).
 </section>
