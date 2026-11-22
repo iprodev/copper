@@ -188,6 +188,7 @@ export default function({
                 case "facebook":
                 case "instagram":
                 case "threads":
+                case "generic":
                 case "tumblr":
                 case "pinterest":
                 case "streamable":

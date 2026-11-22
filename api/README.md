@@ -67,6 +67,9 @@ if the desired service isn't supported yet, feel free to create an appropriate i
 | vimeo      | audio downloads are only available for dash.                                                                         |
 | youtube    | supports videos, music, and shorts. 8K, 4K, HDR, VR, and high FPS videos. rich metadata & dubs. h264/av1/vp9 codecs. |
 
+### other websites
+links from sites without a dedicated service can be handled by the generic extractor, which looks for video, audio or images on the page. it's disabled by default, see [`ENABLE_GENERIC_EXTRACTOR`](/docs/api-env-variables.md#enable_generic_extractor) before enabling it.
+
 ## license
 fetchr api code is licensed under [AGPL-3.0](LICENSE).
 

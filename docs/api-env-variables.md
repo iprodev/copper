@@ -12,6 +12,7 @@ this document is not final and will expand over time. feel free to improve it!
 | API_INSTANCE_COUNT     |         | `6`                                   |
 | API_REDIS_URL          |         | `redis://localhost:6379`              |
 | DISABLED_SERVICES      |         | `bilibili,youtube`                    |
+| ENABLE_GENERIC_EXTRACTOR |       | `1`                                   |
 | FORCE_LOCAL_PROCESSING | `never` | `always`                              |
 | API_ENV_FILE           |         | `/.env`                               |
 
@@ -112,6 +113,13 @@ the value is a URL.
 comma-separated list which disables certain services from being used.
 
 the value is a string of fetchr-supported services.
+
+### ENABLE_GENERIC_EXTRACTOR
+when set to `1`, links from sites that don't have a dedicated service are handled by the generic extractor. it looks for media on the page (schema.org `VideoObject`, `og:video`, `<video>`/`<audio>` tags and direct links to media files), and also accepts direct links to media files and hls playlists. disabled by default.
+
+**security:** this makes your instance request urls provided by users. every request (including redirects, hls playlists and their segments) is checked, and only `http`/`https` on ports 80 and 443 to public ip addresses is allowed. loopback, private networks, link-local addresses (such as cloud metadata endpoints) and other reserved ranges are refused. if your instance uses an http proxy, the proxy resolves hostnames, so make sure it doesn't allow access to internal networks either.
+
+api keys with an `allowedServices` list need `generic` in it to use the generic extractor.
 
 ### FORCE_LOCAL_PROCESSING
 the value is a string: `never` (default), `session`, or `always`:

@@ -1,6 +1,14 @@
 import HLS from "hls-parser";
 import { createInternalStream } from "./manage.js";
 import { hlsSignedQuery } from "../processing/service-config.js";
+import { env } from "../config.js";
+
+// only urls of our own internal tunnel handler are left as they are.
+// any other loopback url in a playlist would let ffmpeg request it directly.
+const isOwnTunnel = (url) =>
+    url.hostname === '127.0.0.1'
+    && url.port === String(env.tunnelPort)
+    && url.pathname === '/itunnel';
 import { request } from "undici";
 
 function getURL(url) {
@@ -31,13 +39,26 @@ function transformObject(streamInfo, hlsObject) {
         return (object) => transformObject(streamInfo, object);
     }
 
+    // renditions embedded in the main stream have no uri
+    if (!hlsObject?.uri) {
+        return hlsObject;
+    }
+
     const fullUrl = resolveURI(hlsObject.uri, streamInfo);
 
-    if (fullUrl.hostname !== '127.0.0.1') {
+    if (!isOwnTunnel(fullUrl)) {
         hlsObject.uri = createInternalStream(fullUrl.toString(), streamInfo);
 
         if (hlsObject.map) {
             hlsObject.map = transformObject(streamInfo, hlsObject.map);
+        }
+
+        // decryption keys are requested by ffmpeg too, so they go through the tunnel
+        if (hlsObject.key?.uri) {
+            const keyUrl = resolveURI(hlsObject.key.uri, streamInfo);
+            if (!isOwnTunnel(keyUrl)) {
+                hlsObject.key.uri = createInternalStream(keyUrl.toString(), streamInfo);
+            }
         }
     }
 
@@ -51,6 +72,7 @@ function transformMasterPlaylist(streamInfo, hlsPlaylist) {
         variant = transformObject(streamInfo, variant);
         variant.video = variant.video.map(makeInternalStream);
         variant.audio = variant.audio.map(makeInternalStream);
+        variant.subtitles = variant.subtitles?.map(makeInternalStream);
         return variant;
     };
     hlsPlaylist.variants = hlsPlaylist.variants.map(makeInternalVariants);

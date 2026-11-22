@@ -33,6 +33,7 @@ import threads from "./services/threads.js";
 import pornhub from "./services/pornhub.js";
 import xvideos from "./services/xvideos.js";
 import beeg from "./services/beeg.js";
+import generic from "./services/generic.js";
 
 let freebind;
 
@@ -55,12 +56,12 @@ export default async function({ host, patternMatch, params, authType }) {
             isAudioOnly = params.downloadMode === "audio",
             isAudioMuted = params.downloadMode === "mute";
 
-        if (!testers[host]) {
+        if (host !== "generic" && !testers[host]) {
             return createResponse("error", {
                 code: "error.api.service.unsupported"
             });
         }
-        if (!(testers[host](patternMatch))) {
+        if (host !== "generic" && !(testers[host](patternMatch))) {
             return createResponse("error", {
                 code: "error.api.link.unsupported",
                 context: {
@@ -261,6 +262,10 @@ export default async function({ host, patternMatch, params, authType }) {
                     alwaysProxy: params.alwaysProxy,
                     dispatcher
                 });
+                break;
+
+            case "generic":
+                r = await generic({ url: patternMatch.url, quality: params.videoQuality });
                 break;
 
             case "pornhub":

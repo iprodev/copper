@@ -29,6 +29,10 @@ services:
             # so it's disabled. remove it from the list to enable it again
             DISABLED_SERVICES: "newgrounds"
 
+            # uncomment to allow links from any site (generic extractor),
+            # read docs/api-env-variables.md#enable_generic_extractor first
+            # ENABLE_GENERIC_EXTRACTOR: "1"
+
             # see /docs/run-an-instance.md for more variables that you can use here
 
         labels:

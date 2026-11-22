@@ -1,7 +1,12 @@
 import UrlPattern from "url-pattern";
 
 export const audioIgnore = new Set(["vk", "ok", "loom"]);
-export const hlsExceptions = new Set(["dailymotion", "vimeo", "rutube", "bsky", "youtube", "loom", "pornhub", "xvideos", "beeg", "pinterest"]);
+export const hlsExceptions = new Set(["dailymotion", "vimeo", "rutube", "bsky", "youtube", "loom", "pornhub", "xvideos", "beeg", "pinterest", "generic"]);
+
+// the generic extractor handles user-provided urls from any site, so its
+// tunnels go through the ssrf guard (security/network.js)
+export const isGenericService = (service) =>
+    service === "generic" || String(service).startsWith("generic-");
 
 // services whose hls files are signed with query params
 // that must be carried over to every relative uri

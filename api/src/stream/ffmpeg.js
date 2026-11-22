@@ -4,7 +4,14 @@ import { create as contentDisposition } from "content-disposition-header";
 
 import { env } from "../config.js";
 import { destroyInternalStream } from "./manage.js";
-import { hlsExceptions } from "../processing/service-config.js";
+import { hlsExceptions, isGenericService } from "../processing/service-config.js";
+
+// ffmpeg only reads from the internal tunnel handler. for untrusted (generic)
+// media, every other protocol (file, ftp, concat, etc.) is refused.
+const inputArgs = (streamInfo, url) => [
+    ...(isGenericService(streamInfo.service) ? ['-protocol_whitelist', 'http,tcp,crypto'] : []),
+    '-i', url,
+];
 import { closeResponse, pipe, estimateTunnelLength, estimateAudioMultiplier } from "./shared.js";
 
 const metadataTags = new Set([
@@ -99,7 +106,7 @@ const render = async (res, streamInfo, ffargs, estimateMultiplier) => {
 const remux = async (streamInfo, res) => {
     const format = streamInfo.filename.split('.').pop();
     const urls = Array.isArray(streamInfo.urls) ? streamInfo.urls : [streamInfo.urls];
-    const args = urls.flatMap(url => ['-i', url]);
+    const args = urls.flatMap(url => inputArgs(streamInfo, url));
 
     // if the stream type is merge, we expect two URLs
     if (streamInfo.type === 'merge' && urls.length !== 2) {
@@ -108,7 +115,7 @@ const remux = async (streamInfo, res) => {
 
     if (streamInfo.subtitles) {
         args.push(
-            '-i', streamInfo.subtitles,
+            ...inputArgs(streamInfo, streamInfo.subtitles),
             '-map', `${urls.length}:s`,
             '-c:s', format === 'mp4' ? 'mov_text' : 'webvtt',
         );
@@ -157,7 +164,7 @@ const remux = async (streamInfo, res) => {
 
 const convertAudio = async (streamInfo, res) => {
     const args = [
-        '-i', streamInfo.urls,
+        ...inputArgs(streamInfo, streamInfo.urls),
         '-vn',
         ...(streamInfo.audioCopy ? ['-c:a', 'copy'] : ['-b:a', `${streamInfo.audioBitrate}k`]),
     ];
@@ -194,7 +201,7 @@ const convertAudio = async (streamInfo, res) => {
 
 const convertGif = async (streamInfo, res) => {
     const args = [
-        '-i', streamInfo.urls,
+        ...inputArgs(streamInfo, streamInfo.urls),
 
         '-vf',
         'scale=-1:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',

@@ -2,12 +2,17 @@ import { request } from "undici";
 import { Readable } from "node:stream";
 import { closeRequest, getHeaders, pipe } from "./shared.js";
 import { handleHlsPlaylist, isHlsResponse, probeInternalHLSTunnel } from "./internal-hls.js";
+import { assertSafeURL } from "../security/network.js";
+import { isGenericService } from "../processing/service-config.js";
 
 const CHUNK_SIZE = BigInt(8e6); // 8 MB
 const min = (a, b) => a < b ? a : b;
 
 const serviceNeedsChunks = new Set(["youtube", "vk"]);
 const hlsSkippedHeaders = new Set(["content-length", "content-range", "accept-ranges", "content-encoding"]);
+
+// the tunnel consumer (ffmpeg) must never follow redirects on its own
+const alwaysSkippedHeaders = new Set(["location", "refresh"]);
 
 async function* readChunks(streamInfo, size) {
     let read = 0n, chunksSinceTransplant = 0;
@@ -120,7 +125,8 @@ async function handleGenericStream(streamInfo, res) {
             },
             dispatcher: streamInfo.dispatcher,
             signal,
-            maxRedirections: 16
+            // redirects of generic media are resolved (and checked) during extraction
+            maxRedirections: isGenericService(streamInfo.service) ? 0 : 16
         });
 
         fileResponse.body.on('error', () => {});
@@ -136,7 +142,10 @@ async function handleGenericStream(streamInfo, res) {
         res.status(isHls ? 200 : fileResponse.statusCode);
 
         for (const [ name, value ] of Object.entries(fileResponse.headers)) {
-            if (!isHls || !hlsSkippedHeaders.has(name.toLowerCase())) {
+            const lowerName = name.toLowerCase();
+            if (alwaysSkippedHeaders.has(lowerName)) continue;
+
+            if (!isHls || !hlsSkippedHeaders.has(lowerName)) {
                 res.setHeader(name, value);
             }
         }
@@ -156,9 +165,21 @@ async function handleGenericStream(streamInfo, res) {
     }
 }
 
-export function internalStream(streamInfo, res) {
+export async function internalStream(streamInfo, res) {
     if (streamInfo.headers) {
         streamInfo.headers.delete('icy-metadata');
+    }
+
+    // urls of generic tunnels (including hls segments from untrusted
+    // playlists) are checked before every request
+    if (isGenericService(streamInfo.service)) {
+        try {
+            await assertSafeURL(streamInfo.url);
+        } catch {
+            closeRequest(streamInfo.controller);
+            res.statusCode = 403;
+            return res.end();
+        }
     }
 
     if (serviceNeedsChunks.has(streamInfo.service) && !streamInfo.isHLS) {
@@ -169,6 +190,9 @@ export function internalStream(streamInfo, res) {
 }
 
 export async function probeInternalTunnel(streamInfo) {
+    // size probes would request untrusted urls outside of the checked path
+    if (isGenericService(streamInfo.service)) return;
+
     try {
         const signal = AbortSignal.timeout(3000);
         const headers = {

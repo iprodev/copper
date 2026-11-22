@@ -126,6 +126,9 @@ export const loadEnvs = (env = process.env) => {
         // "never" | "session" | "always"
         forceLocalProcessing: env.FORCE_LOCAL_PROCESSING ?? "never",
 
+        // generic extractor for links from any site, disabled by default
+        genericExtractor: env.ENABLE_GENERIC_EXTRACTOR === "1",
+
         // "never" | "key" | "always"
         enableDeprecatedYoutubeHls: env.ENABLE_DEPRECATED_YOUTUBE_HLS ?? "never",
 

@@ -126,6 +126,14 @@ function cleanURL(url) {
     assert(url instanceof URL);
     const host = psl.parse(url.hostname).sld;
 
+    // links to unsupported sites (for the generic extractor) are kept as
+    // they are, query strings may be required there. only credentials and
+    // fragments are removed.
+    if (!services[host]) {
+        url.username = url.password = url.hash = '';
+        return url;
+    }
+
     let stripQuery = true;
 
     const limitQuery = (param) => {
@@ -200,6 +208,13 @@ export function normalizeURL(url) {
     );
 }
 
+// api keys with a list of allowed services need "generic" in it
+const genericAllowed = (enabledServices) => env.genericExtractor && (
+    enabledServices === env.enabledServices
+    || enabledServices === env.allServices
+    || enabledServices.has("generic")
+);
+
 export function extract(url, enabledServices = env.enabledServices) {
     if (!(url instanceof URL)) {
         url = new URL(url);
@@ -208,6 +223,9 @@ export function extract(url, enabledServices = env.enabledServices) {
     const host = getHostIfValid(url);
 
     if (!host) {
+        if (genericAllowed(enabledServices) && ['http:', 'https:'].includes(url.protocol)) {
+            return { host: "generic", patternMatch: { url: url.toString() } };
+        }
         return { error: "link.invalid" };
     }
 
