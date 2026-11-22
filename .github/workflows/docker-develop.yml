@@ -5,11 +5,19 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push-image:
+    name: docker image (${{ matrix.target }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # api: ghcr.io/<owner>/fetchr, telegram bot: ghcr.io/<owner>/fetchr-bot
+          - target: api
+            image: ${{ github.repository }}
+          - target: bot
+            image: ${{ github.repository }}-bot
     permissions:
       contents: read
       packages: write
@@ -41,15 +49,16 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           tags: type=raw,value=develop
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ matrix.image }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
+          target: ${{ matrix.target }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}

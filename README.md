@@ -25,6 +25,8 @@ this monorepo includes source code for api, frontend, and related packages:
 
 it also includes documentation in the [docs tree](/docs/):
 - [how to run a fetchr instance](/docs/run-an-instance.md)
+- [install fetchr on a server with one script (website, api, warp, telegram bot)](/deploy/README.md) (in persian)
+- [telegram bot](/bot/README.md)
 - [how to protect a fetchr instance](/docs/protect-an-instance.md)
 - [fetchr api instance environment variables](/docs/api-env-variables.md)
 - [fetchr api documentation](/docs/api.md)

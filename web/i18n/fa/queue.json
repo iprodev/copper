@@ -1,0 +1,13 @@
+{
+    "title": "صف پردازش",
+    "stub": "هنوز چیزی اینجا نیست.\nیک چیزی دانلود کنید!",
+    "state.waiting": "در صف",
+    "state.retrying": "تلاش دوباره",
+    "state.starting": "در حال شروع",
+    "state.starting.fetch": "شروع دانلود",
+    "state.starting.remux": "شروع بسته‌بندی دوباره",
+    "state.starting.encode": "شروع تبدیل فرمت",
+    "state.running.remux": "بسته‌بندی دوباره",
+    "state.running.fetch": "در حال دانلود",
+    "state.running.encode": "تبدیل فرمت"
+}

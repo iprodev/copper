@@ -1,15 +1,28 @@
-name: Build release Docker image
+name: Build release
 
+# runs when a version tag (e.g. v1.0.0) is pushed or a release is created
+# from one, and can also be started by hand
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push-image:
+    name: docker image (${{ matrix.target }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # api: ghcr.io/<owner>/fetchr, telegram bot: ghcr.io/<owner>/fetchr-bot
+          - target: api
+            image: ${{ github.repository }}
+          - target: bot
+            image: ${{ github.repository }}-bot
     permissions:
       contents: read
       packages: write
@@ -45,15 +58,53 @@ jobs:
             type=raw,value=${{ steps.release-meta.outputs.version }}
             type=raw,value=${{ steps.release-meta.outputs.major_version }}
             type=raw,value=${{ steps.release-meta.outputs.version }}-${{ steps.release-meta.outputs.commit_short }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ matrix.image }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
+          target: ${{ matrix.target }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+
+  web:
+    name: web build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+
+      # the frontend is static, its domain and api are set at build time.
+      # they can be changed with the WEB_HOST and WEB_DEFAULT_API repository variables.
+      - run: pnpm run --prefix web build
+        env:
+          WEB_HOST: ${{ vars.WEB_HOST || 'fetchr.download' }}
+          WEB_DEFAULT_API: ${{ vars.WEB_DEFAULT_API || 'https://api.fetchr.download/' }}
+
+      - run: tar -czf fetchr-web.tar.gz -C web/build .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fetchr-web
+          path: fetchr-web.tar.gz
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" fetchr-web.tar.gz --clobber
