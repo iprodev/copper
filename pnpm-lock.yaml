@@ -114,6 +114,9 @@ importers:
       '@fontsource/redaction-10':
         specifier: ^5.3.0
         version: 5.3.0
+      '@fontsource/vazirmatn':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@imput/libav.js-encode-cli':
         specifier: 6.8.7
         version: 6.8.7
@@ -407,6 +410,9 @@ packages:
 
   '@fontsource/redaction-10@5.3.0':
     resolution: {integrity: sha512-EukjMqtXDt9hSlOSRTNR6+bmHuYtOpbXrCGTJlw3H85754amhN4zH4sZ75Jr3wkSLR3Jp5PEDcXSkMpu9F05BQ==}
+
+  '@fontsource/vazirmatn@5.3.0':
+    resolution: {integrity: sha512-XC/2yN2r5gwhFT3klSuWaqncODX2DOfRYfNmbyzgtWYxHxMC+tcoaX+tgggrm6hSkEgpR1TuSDEf1PiI91G7qg==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -2261,6 +2267,8 @@ snapshots:
   '@fontsource/ibm-plex-mono@5.3.0': {}
 
   '@fontsource/redaction-10@5.3.0': {}
+
+  '@fontsource/vazirmatn@5.3.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

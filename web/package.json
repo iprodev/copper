@@ -29,6 +29,7 @@
         "@fetchr/version-info": "workspace:^",
         "@fontsource/ibm-plex-mono": "^5.3.0",
         "@fontsource/redaction-10": "^5.3.0",
+        "@fontsource/vazirmatn": "^5.3.0",
         "@imput/libav.js-encode-cli": "6.8.7",
         "@imput/libav.js-remux-cli": "^6.8.7",
         "@sveltejs/adapter-static": "^3.0.11",

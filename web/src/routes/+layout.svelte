@@ -6,6 +6,12 @@
     import "@fontsource/ibm-plex-mono/400-italic.css";
     import "@fontsource/ibm-plex-mono/500.css";
 
+    // persian text, used only on rtl pages (see app.css)
+    import "@fontsource/vazirmatn/arabic-400.css";
+    import "@fontsource/vazirmatn/arabic-500.css";
+    import "@fontsource/vazirmatn/latin-400.css";
+    import "@fontsource/vazirmatn/latin-500.css";
+
     import { onMount } from "svelte";
     import { page } from "$app/stores";
     import { updated } from "$app/stores";
@@ -36,6 +42,14 @@
     $: reduceTransparency =
         $settings.accessibility.reduceTransparency ||
         device.prefers.reducedTransparency;
+
+    const rtlLocales = ["fa"];
+    $: dir = (rtlLocales.includes($locale) ? "rtl" : "ltr") as "rtl" | "ltr";
+
+    $: if (browser) {
+        document.documentElement.lang = $locale;
+        document.documentElement.dir = dir;
+    }
 
     $: preloadAssets = false;
     $: plausibleLoaded = false;
@@ -94,6 +108,7 @@
     style="display: contents"
     data-theme={browser ? $currentTheme : undefined}
     lang={$locale}
+    {dir}
 >
     {#if preloadAssets}
         <div id="preload" aria-hidden="true">??</div>

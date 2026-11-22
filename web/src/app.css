@@ -362,6 +362,12 @@ h6 {
     -webkit-user-select: text;
 }
 
+/* persian (and other rtl) text reads better in a proportional font */
+[dir="rtl"] *,
+[dir="rtl"] .long-text *:not(h1, h2, h3, h4, h5, h6) {
+    font-family: "Vazirmatn", "IBM Plex Mono", monospace;
+}
+
 .long-text,
 .long-text *:not(h1, h2, h3, h4, h5, h6) {
     line-height: 1.8;

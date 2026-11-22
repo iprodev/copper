@@ -1,0 +1,12 @@
+{
+    "link_area": "محل وارد کردن لینک",
+    "link_area.turnstile": "محل وارد کردن لینک. در حال بررسی اینکه ربات نیستید.",
+    "clear_input": "پاک کردن متن",
+    "download": "دانلود",
+    "download.think": "در حال پردازش لینک...",
+    "download.check": "در حال بررسی دانلود...",
+    "download.done": "دانلود انجام شد",
+    "download.error": "خطا در دانلود",
+    "tutorial.shortcut.photos": "افزودن میان‌بر عکس‌ها",
+    "tutorial.shortcut.files": "افزودن میان‌بر فایل‌ها"
+}
