@@ -76,6 +76,9 @@ export function pipelineTaskDone(id: UUID, workerId: UUID, file: File) {
 
         if (item && item.state === 'running') {
             item.pipelineResults[workerId] = file;
+        } else {
+            // the task was restarted or removed meanwhile, the file isn't needed
+            removeFromFileStorage(file.name);
         }
 
         return queueData;
@@ -98,6 +101,24 @@ export function itemRunning(id: UUID) {
     });
 
     schedule();
+}
+
+// the task waits for new tunnels from the api, see task-manager/recovery.ts
+export function itemRefreshing(id: UUID) {
+    update(queueData => {
+        const item = queueData[id];
+
+        if (item) {
+            clearPipelineCache(item);
+            queueData[id] = {
+                ...item,
+                state: "waiting",
+                refreshing: true,
+            } as FetchrQueueItem;
+        }
+
+        return queueData;
+    });
 }
 
 export function removeItem(id: UUID) {

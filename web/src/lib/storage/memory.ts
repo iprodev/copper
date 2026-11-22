@@ -13,7 +13,13 @@ export class MemoryStorage extends AbstractStorage {
 
     static async init(expectedSize: number) {
         const MB = 1024 * 1024;
-        const chunkSize = Math.min(512 * MB, expectedSize);
+
+        // the expected size can be unknown (0) or wrong, so chunks are never
+        // tiny: a chunk size of 0 used to make #expand() loop forever
+        const chunkSize = Math.max(
+            MB,
+            Math.min(512 * MB, expectedSize || 16 * MB),
+        );
 
         const storage = new this(chunkSize);
 
@@ -62,20 +68,16 @@ export class MemoryStorage extends AbstractStorage {
         const writeEnd = pos + data.length;
         this.#expand(writeEnd);
 
-        const chunkIndex = pos / this.#chunkSize | 0;
-        const offset = pos - (this.#chunkSize * chunkIndex);
+        // the data can span any number of chunks
+        let written = 0;
+        while (written < data.length) {
+            const position = pos + written;
+            const chunkIndex = Math.floor(position / this.#chunkSize);
+            const offset = position - chunkIndex * this.#chunkSize;
+            const length = Math.min(this.#chunkSize - offset, data.length - written);
 
-        if (offset + data.length > this.#chunkSize) {
-            this.#chunks[chunkIndex].set(
-                data.subarray(0, this.#chunkSize - offset),
-                offset,
-            );
-            this.#chunks[chunkIndex + 1].set(
-                data.subarray(this.#chunkSize - offset),
-                0,
-            );
-        } else {
-            this.#chunks[chunkIndex].set(data, offset);
+            this.#chunks[chunkIndex].set(data.subarray(written, written + length), offset);
+            written += length;
         }
 
         this.#actualSize = Math.max(writeEnd, this.#actualSize);

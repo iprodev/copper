@@ -2,6 +2,7 @@ import { get } from "svelte/store";
 import { startWorker } from "$lib/task-manager/run-worker";
 import { addWorkerToQueue, currentTasks } from "$lib/state/task-manager/current-tasks";
 import { itemDone, itemError, itemRunning, queue } from "$lib/state/task-manager/queue";
+import { canRefresh, refreshItem, tunnelsExpireSoon } from "$lib/task-manager/recovery";
 
 import type { FetchrPipelineItem } from "$lib/types/workers";
 
@@ -68,6 +69,16 @@ export const schedule = () => {
             // on retry if a later task is running & user restarts an old task
             for (const task of Object.values(queueItems)) {
                 if (task.state === "running") return;
+            }
+
+            // new tunnels are on their way, this task starts once they're here
+            if (task.refreshing) return;
+
+            // the tunnels of a task that waited long in the queue have expired
+            // (or are about to): new ones are requested first
+            if (tunnelsExpireSoon(task) && canRefresh(task)) {
+                refreshItem(task.id);
+                return;
             }
 
             startPipeline(task.pipeline[0]);

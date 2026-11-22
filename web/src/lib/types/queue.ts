@@ -11,6 +11,12 @@ type FetchrQueueBaseItem = {
     filename: string,
     mimeType?: string,
     mediaType: FetchrPipelineResultFileType,
+    // new tunnels are being requested from the api
+    refreshing?: boolean,
+    // how many times new tunnels were requested
+    refreshes?: number,
+    // when the task (and its tunnels) was created
+    createdAt?: number,
 };
 
 type FetchrQueueItemWaiting = FetchrQueueBaseItem & {

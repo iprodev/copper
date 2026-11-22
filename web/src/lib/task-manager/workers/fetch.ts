@@ -1,34 +1,51 @@
 import * as Storage from "$lib/storage";
 
+import type { AbstractStorage } from "$lib/storage/storage";
+
 const networkErrors = [
     "TypeError: Failed to fetch",
     "TypeError: network error",
 ];
 
-let attempts = 0;
+// tries after the first one, for network problems and server errors
+const RETRIES = 3;
 
-const fetchFile = async (url: string) => {
-    const error = async (code: string, retry: boolean = true) => {
-        attempts++;
+// progress is reported at most this often
+const PROGRESS_INTERVAL = 250;
 
-        // try 3 more times before actually failing
-        if (retry && attempts <= 3) {
-            await fetchFile(url);
-        } else {
-            self.postMessage({
-                fetchrFetchWorker: {
-                    error: code,
-                }
-            });
-            return self.close();
-        }
-    };
+type Attempt =
+    | { file: File }
+    | { error: string, retry: boolean, status?: number };
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// a failed attempt leaves nothing behind in the browser's storage
+const discard = async (storage?: AbstractStorage) => {
+    if (!storage) return;
+    try {
+        // closes the file first, an open file can't be removed
+        await storage.res();
+    } catch { /* already closed */ }
+    try {
+        await storage.destroy();
+    } catch { /* already gone */ }
+}
+
+const attempt = async (url: string): Promise<Attempt> => {
+    let storage: AbstractStorage | undefined;
 
     try {
         const response = await fetch(url);
 
         if (!response.ok) {
-            return error("queue.fetch.bad_response");
+            await response.body?.cancel().catch(() => {});
+            return {
+                error: "queue.fetch.bad_response",
+                // an expired or unknown tunnel won't work on a retry,
+                // only server errors might
+                retry: response.status >= 500,
+                status: response.status,
+            };
         }
 
         const contentType = response.headers.get('Content-Type')
@@ -46,14 +63,14 @@ const fetchFile = async (url: string) => {
         }
 
         const reader = response.body?.getReader();
-
-        const storage = await Storage.init(expectedSize);
-
         if (!reader) {
-            return error("queue.fetch.no_file_reader");
+            return { error: "queue.fetch.no_file_reader", retry: false };
         }
 
+        storage = await Storage.init(expectedSize);
+
         let receivedBytes = 0;
+        let lastProgress = 0;
 
         while (true) {
             const { done, value } = await reader.read();
@@ -62,7 +79,8 @@ const fetchFile = async (url: string) => {
             await storage.write(value, receivedBytes);
             receivedBytes += value.length;
 
-            if (expectedSize) {
+            if (expectedSize && Date.now() - lastProgress > PROGRESS_INTERVAL) {
+                lastProgress = Date.now();
                 self.postMessage({
                     fetchrFetchWorker: {
                         progress: Math.round((receivedBytes / expectedSize) * 100),
@@ -73,28 +91,57 @@ const fetchFile = async (url: string) => {
         }
 
         if (receivedBytes === 0) {
-            return error("queue.fetch.empty_tunnel");
+            await discard(storage);
+            return { error: "queue.fetch.empty_tunnel", retry: true };
         }
 
         const file = Storage.retype(await storage.res(), contentType);
 
         if (contentLength && Number(contentLength) !== file.size) {
-            return error("queue.fetch.corrupted_file", false);
+            await discard(storage);
+            return { error: "queue.fetch.corrupted_file", retry: true };
         }
 
-        self.postMessage({
-            fetchrFetchWorker: {
-                result: file
-            }
-        });
+        return { file };
     } catch (e) {
-        // retry several times if the error is network-related
+        await discard(storage);
+
+        // network problems are worth another try
         if (networkErrors.includes(String(e))) {
-            return error("queue.fetch.network_error");
+            return { error: "queue.fetch.network_error", retry: true };
         }
+
         console.error("error from the fetch worker:");
         console.error(e);
-        return error("queue.fetch.crashed", false);
+        return { error: "queue.fetch.crashed", retry: false };
+    }
+}
+
+const fetchFile = async (url: string) => {
+    for (let i = 0; i <= RETRIES; i++) {
+        const result = await attempt(url);
+
+        if ("file" in result) {
+            self.postMessage({
+                fetchrFetchWorker: {
+                    result: result.file
+                }
+            });
+            return;
+        }
+
+        if (!result.retry || i === RETRIES) {
+            self.postMessage({
+                fetchrFetchWorker: {
+                    error: result.error,
+                    status: result.status,
+                }
+            });
+            return;
+        }
+
+        // a short pause before trying again, longer each time
+        await sleep(1000 * (i + 1));
     }
 }
 

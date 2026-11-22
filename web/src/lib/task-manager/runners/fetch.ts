@@ -2,7 +2,8 @@ import FetchWorker from "$lib/task-manager/workers/fetch?worker";
 
 import { killWorker } from "$lib/task-manager/run-worker";
 import { updateWorkerProgress } from "$lib/state/task-manager/current-tasks";
-import { pipelineTaskDone, itemError, queue } from "$lib/state/task-manager/queue";
+import { pipelineTaskDone, queue } from "$lib/state/task-manager/queue";
+import { handleFailure } from "$lib/task-manager/recovery";
 
 import type { FetchrQueue, UUID } from "$lib/types/queue";
 
@@ -43,7 +44,7 @@ export const runFetchWorker = async (workerId: UUID, parentId: UUID, url: string
 
         if (eventData.error) {
             killWorker(worker, unsubscribe);
-            return itemError(parentId, workerId, eventData.error);
+            return handleFailure(parentId, workerId, eventData.error, eventData.status);
         }
     }
 }
