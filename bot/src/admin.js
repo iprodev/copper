@@ -188,7 +188,7 @@ export class Admin {
                     }
                     // runs in the background, the progress message is updated
                     this.#broadcast(query.message.chat.id, query.message.message_id, pending, t)
-                        .catch(() => { this.#broadcasting = false; });
+                        .catch(() => {});
                     return;
                 }
 
@@ -305,7 +305,23 @@ export class Admin {
 
     async #broadcast(chatId, progressMessageId, { fromChatId, messageId }, t) {
         this.#broadcasting = true;
+        try {
+            const result = await this.#sendToAll(chatId, progressMessageId, fromChatId, messageId, t);
 
+            await this.#telegram.editMessageText(
+                chatId, progressMessageId,
+                format(t.admin.broadcastDone, result),
+                { reply_markup: this.#backButton(t) },
+            ).catch(() => {});
+
+            return result;
+        } finally {
+            // only once the report is sent, so nothing can start in between
+            this.#broadcasting = false;
+        }
+    }
+
+    async #sendToAll(chatId, progressMessageId, fromChatId, messageId, t) {
         const targets = this.#store.broadcastTargets();
         let sent = 0, blocked = 0, failed = 0, lastUpdate = 0;
 
@@ -344,14 +360,6 @@ export class Admin {
             }
             await sleep(BROADCAST_DELAY);
         }
-
-        this.#broadcasting = false;
-
-        await this.#telegram.editMessageText(
-            chatId, progressMessageId,
-            format(t.admin.broadcastDone, { sent, blocked, failed }),
-            { reply_markup: this.#backButton(t) },
-        ).catch(() => {});
 
         return { sent, blocked, failed };
     }
