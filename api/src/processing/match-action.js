@@ -8,6 +8,10 @@ import { convertLanguageCode } from "../misc/language-codes.js";
 
 const extraProcessingTypes = new Set(["merge", "remux", "mute", "audio", "gif"]);
 
+// types that need re-encoding, which is heavy for weak devices
+const isEncoding = (params) =>
+    params.type === "gif" || (params.type === "audio" && !params.audioCopy);
+
 export default function({
     r,
     host,
@@ -21,6 +25,7 @@ export default function({
     audioBitrate,
     alwaysProxy,
     localProcessing,
+    localEncoding = true,
 }) {
     let action,
         responseType = "tunnel",
@@ -258,7 +263,10 @@ export default function({
     // (very painful)
     if (!params.isHLS && responseType !== "picker") {
         const isPreferredWithExtra =
-            localProcessing === "preferred" && extraProcessingTypes.has(params.type);
+            localProcessing === "preferred"
+            && extraProcessingTypes.has(params.type)
+            // clients that can't encode well get converted files from the server
+            && (localEncoding || !isEncoding(params));
 
         if (localProcessing === "forced" || isPreferredWithExtra) {
             responseType = "local-processing";

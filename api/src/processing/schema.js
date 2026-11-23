@@ -38,6 +38,10 @@ export const apiSchema = z.object({
         ["disabled", "preferred", "forced"]
     ).default("disabled"),
 
+    // false: the client can merge and remux files, but converting
+    // (audio, gifs) is too heavy for it and is done by the server
+    localEncoding: z.boolean().default(true),
+
     youtubeDubLang: z.string()
                      .min(2)
                      .max(8)

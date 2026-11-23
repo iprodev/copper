@@ -4,6 +4,7 @@ import settings from "$lib/state/settings";
 import lazySettingGetter from "$lib/settings/lazy-get";
 
 import { get } from "svelte/store";
+import { device } from "$lib/device";
 import { t } from "$lib/i18n/translations";
 import { downloadFile } from "$lib/download";
 import { createDialog } from "$lib/state/dialogs";
@@ -46,6 +47,9 @@ export const savingHandler = async ({ url, request, oldTaskId }: SavingHandlerAr
 
         // not lazy cuz default depends on device capabilities
         localProcessing: get(settings).save.localProcessing,
+
+        // devices that shouldn't convert files locally only merge and remux
+        ...(device.supports.localEncoding ? {} : { localEncoding: false }),
 
         alwaysProxy: getSetting("save", "alwaysProxy"),
         downloadMode: getSetting("save", "downloadMode"),

@@ -1,18 +1,28 @@
 import { Agent, request } from "undici";
 import { create as contentDisposition } from "content-disposition-header";
 
+import { env } from "../config.js";
 import { destroyInternalStream } from "./manage.js";
 import { getHeaders, closeRequest, closeResponse, pipe } from "./shared.js";
 
 const defaultAgent = new Agent();
 
+// the internal stream is kept until the tunnel expires, so an interrupted
+// download can continue where it stopped (with a range request)
+const destroyLater = (url) => {
+    setTimeout(() => destroyInternalStream(url), env.streamLifespan * 1000).unref();
+}
+
 export default async function (streamInfo, res) {
     const abortController = new AbortController();
-    const shutdown = () => (
-        closeRequest(abortController),
-        closeResponse(res),
-        destroyInternalStream(streamInfo.urls)
-    );
+    let done = false;
+    const shutdown = () => {
+        if (done) return;
+        done = true;
+        closeRequest(abortController);
+        closeResponse(res);
+        destroyLater(streamInfo.urls);
+    };
 
     try {
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -30,7 +40,7 @@ export default async function (streamInfo, res) {
 
         res.status(statusCode);
 
-        for (const headerName of ['accept-ranges', 'content-type', 'content-length']) {
+        for (const headerName of ['accept-ranges', 'content-type', 'content-length', 'content-range']) {
             if (headers[headerName]) {
                 res.setHeader(headerName, headers[headerName]);
             }

@@ -1,4 +1,5 @@
 import * as Storage from "$lib/storage";
+import { OPFSStorage } from "$lib/storage/opfs";
 
 import type { AbstractStorage } from "$lib/storage/storage";
 
@@ -13,13 +14,27 @@ const RETRIES = 3;
 // progress is reported at most this often
 const PROGRESS_INTERVAL = 250;
 
+// the file and the processed result are both kept in the browser's
+// storage for a while, so about twice the file's size has to be free
+const SPACE_FACTOR = 2.2;
+
 type Attempt =
     | { file: File }
     | { error: string, retry: boolean, status?: number };
 
+// what's left from earlier attempts, so a download can continue
+type Download = {
+    storage?: AbstractStorage,
+    received: number,
+    // the full size, when the server said it (needed to continue)
+    total?: number,
+    expectedSize?: number,
+    contentType?: string,
+};
+
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// a failed attempt leaves nothing behind in the browser's storage
+// a failed download leaves nothing behind in the browser's storage
 const discard = async (storage?: AbstractStorage) => {
     if (!storage) return;
     try {
@@ -31,11 +46,30 @@ const discard = async (storage?: AbstractStorage) => {
     } catch { /* already gone */ }
 }
 
-const attempt = async (url: string): Promise<Attempt> => {
-    let storage: AbstractStorage | undefined;
+// whether the browser has room for a file of this size
+const hasSpaceFor = async (size: number) => {
+    // files are only kept on disk with opfs, the in-memory storage can't be checked
+    if (!size || !navigator.storage?.estimate || !(await OPFSStorage.isAvailable())) {
+        return true;
+    }
 
     try {
-        const response = await fetch(url);
+        const { quota, usage } = await navigator.storage.estimate();
+        if (quota === undefined || usage === undefined) return true;
+        return quota - usage >= size * SPACE_FACTOR;
+    } catch {
+        return true;
+    }
+}
+
+const attempt = async (url: string, download: Download): Promise<Attempt> => {
+    // after an interruption, only the rest of the file is requested
+    const resuming = download.received > 0 && download.total !== undefined;
+
+    try {
+        const response = await fetch(url, resuming ? {
+            headers: { Range: `bytes=${download.received}-` },
+        } : undefined);
 
         if (!response.ok) {
             await response.body?.cancel().catch(() => {});
@@ -48,18 +82,30 @@ const attempt = async (url: string): Promise<Attempt> => {
             };
         }
 
-        const contentType = response.headers.get('Content-Type')
-                                || 'application/octet-stream';
+        if (resuming) {
+            // a 206 starts where it was asked to, unless content-range says otherwise.
+            // (servers on another origin have to expose content-range to be readable)
+            const range = response.headers.get('Content-Range');
+            const start = range ? Number(range.match(/^bytes (\d+)-/)?.[1]) : download.received;
 
-        const contentLength = response.headers.get('Content-Length');
-        const estimatedLength = response.headers.get('Estimated-Content-Length');
+            // the server sent the whole file instead of the rest: start over
+            if (response.status !== 206 || start !== download.received) {
+                download.received = 0;
+            }
+        } else {
+            download.contentType = response.headers.get('Content-Type')
+                                    || 'application/octet-stream';
 
-        let expectedSize;
+            const contentLength = response.headers.get('Content-Length');
+            const estimatedLength = response.headers.get('Estimated-Content-Length');
 
-        if (contentLength) {
-            expectedSize = +contentLength;
-        } else if (estimatedLength) {
-            expectedSize = +estimatedLength;
+            download.total = contentLength ? +contentLength : undefined;
+            download.expectedSize = download.total ?? (estimatedLength ? +estimatedLength : undefined);
+
+            if (download.expectedSize && !(await hasSpaceFor(download.expectedSize))) {
+                await response.body?.cancel().catch(() => {});
+                return { error: "queue.fetch.no_space", retry: false };
+            }
         }
 
         const reader = response.body?.getReader();
@@ -67,46 +113,45 @@ const attempt = async (url: string): Promise<Attempt> => {
             return { error: "queue.fetch.no_file_reader", retry: false };
         }
 
-        storage = await Storage.init(expectedSize);
+        download.storage ??= await Storage.init(download.expectedSize);
 
-        let receivedBytes = 0;
         let lastProgress = 0;
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            await storage.write(value, receivedBytes);
-            receivedBytes += value.length;
+            await download.storage.write(value, download.received);
+            download.received += value.length;
 
-            if (expectedSize && Date.now() - lastProgress > PROGRESS_INTERVAL) {
+            if (download.expectedSize && Date.now() - lastProgress > PROGRESS_INTERVAL) {
                 lastProgress = Date.now();
                 self.postMessage({
                     fetchrFetchWorker: {
-                        progress: Math.round((receivedBytes / expectedSize) * 100),
-                        size: receivedBytes,
+                        progress: Math.round((download.received / download.expectedSize) * 100),
+                        size: download.received,
                     }
                 });
             }
         }
 
-        if (receivedBytes === 0) {
-            await discard(storage);
+        if (download.received === 0) {
             return { error: "queue.fetch.empty_tunnel", retry: true };
         }
 
-        const file = Storage.retype(await storage.res(), contentType);
+        const file = Storage.retype(await download.storage.res(), download.contentType!);
 
-        if (contentLength && Number(contentLength) !== file.size) {
-            await discard(storage);
+        if (download.total !== undefined && download.total !== file.size) {
+            await discard(download.storage);
+            download.storage = undefined;
+            download.received = 0;
             return { error: "queue.fetch.corrupted_file", retry: true };
         }
 
         return { file };
     } catch (e) {
-        await discard(storage);
-
-        // network problems are worth another try
+        // network problems are worth another try. what was downloaded
+        // so far is kept, the next attempt continues from there
         if (networkErrors.includes(String(e))) {
             return { error: "queue.fetch.network_error", retry: true };
         }
@@ -118,8 +163,10 @@ const attempt = async (url: string): Promise<Attempt> => {
 }
 
 const fetchFile = async (url: string) => {
+    const download: Download = { received: 0 };
+
     for (let i = 0; i <= RETRIES; i++) {
-        const result = await attempt(url);
+        const result = await attempt(url, download);
 
         if ("file" in result) {
             self.postMessage({
@@ -131,6 +178,7 @@ const fetchFile = async (url: string) => {
         }
 
         if (!result.retry || i === RETRIES) {
+            await discard(download.storage);
             self.postMessage({
                 fetchrFetchWorker: {
                     error: result.error,

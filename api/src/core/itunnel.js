@@ -31,8 +31,12 @@ const streamTunnel = (req, res) => {
         return;
     }
 
+    // headers of a request (like range) are only used for that request:
+    // the tunnel can be requested again (e.g. to continue a download), so
+    // they're added to the tunnel's own headers every time, not kept
+    streamInfo.baseHeaders ??= new Map(streamInfo.headers || []);
     streamInfo.headers = new Map([
-        ...(streamInfo.headers || []),
+        ...streamInfo.baseHeaders,
         ...Object.entries(req.headers)
     ]);
 

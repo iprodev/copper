@@ -357,6 +357,7 @@ export default async function({ host, patternMatch, params, authType }) {
             audioBitrate: params.audioBitrate,
             alwaysProxy: params.alwaysProxy || localProcessing === "forced",
             localProcessing,
+            localEncoding: params.localEncoding,
         })
     } catch {
         return createResponse("error", {

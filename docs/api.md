@@ -79,6 +79,7 @@ all keys except for `url` are optional. value options are separated by `/`.
 | `disableMetadata` | `boolean` | title, artist, and other info will not be added to the file     | `false`    |
 | `alwaysProxy`     | `boolean` | always tunnel all files, even when not necessary                | `false`    |
 | `localProcessing` | `string`  | `disabled / preferred / forced`                                 | `disabled` |
+| `localEncoding`   | `boolean` | with `preferred`: `false` leaves converting (audio, gifs) to the server, only merging and remuxing is done by the client | `true` |
 | `subtitleLang`    | `string`  | any valid ISO 639-1 language code                               | *none*     |
 
 #### service-specific options

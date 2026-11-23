@@ -285,7 +285,9 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         methods: ['GET'],
         exposedHeaders: [
             'Estimated-Content-Length',
-            'Content-Disposition'
+            'Content-Disposition',
+            // where the rest of an interrupted download starts
+            'Content-Range',
         ],
         ...corsConfig,
     }));
