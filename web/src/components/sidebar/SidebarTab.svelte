@@ -112,6 +112,14 @@
         white-space: nowrap;
     }
 
+    /* like the icon (svg and img are pointer-events: none in app.css), the
+       title and beta sign leave taps to the tab itself. on iphones, a tap on
+       the text didn't open the tab, since the tab shrinks while it's pressed */
+    .tab-title,
+    .beta-sign {
+        pointer-events: none;
+    }
+
     .sidebar-tab:active:not(.active) {
         opacity: 1;
     }

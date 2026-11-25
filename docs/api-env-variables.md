@@ -66,7 +66,7 @@ this document is not final and will expand over time. feel free to improve it!
 | name                             | value example            |
 |:---------------------------------|:-------------------------|
 | CUSTOM_INNERTUBE_CLIENT          | `IOS`                    |
-| YOUTUBE_SESSION_SERVER           | `http://localhost:8080/` |
+| YOUTUBE_SESSION_SERVER           | `http://localhost:4416/` |
 | YOUTUBE_SESSION_INNERTUBE_CLIENT | `WEB_EMBEDDED`           |
 | YOUTUBE_ALLOW_BETTER_AUDIO       | `1`                      |
 | ENABLE_DEPRECATED_YOUTUBE_HLS    | `key`                    |
@@ -296,7 +296,11 @@ innertube client that will be used instead of the default one.
 the value is a string.
 
 ### YOUTUBE_SESSION_SERVER
-URL to an instance of [yt-session-generator](https://github.com/imputnet/yt-session-generator). used for automatically pulling `poToken` & `visitor_data` for youtube. can be local or remote.
+URL to an instance of [bgutil's po token provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider) (`brainicism/bgutil-ytdlp-pot-provider`, port 4416). used for automatically pulling `poToken` & `visitor_data` for youtube. can be local or remote.
+
+po tokens are bound to the ip address they're made from, so the provider must reach youtube from the same address as the api (e.g. through the same proxy, see `ALL_PROXY` in its docs).
+
+the older [yt-session-generator](https://github.com/imputnet/yt-session-generator) isn't supported anymore: it has a different api.
 
 the value is a URL.
 

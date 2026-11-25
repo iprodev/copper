@@ -1,4 +1,4 @@
-# fetchr: api, youtube session generator, cloudflare warp and the telegram bot.
+# fetchr: api, youtube po token provider, cloudflare warp and the telegram bot.
 # settings live in .env (made by install.sh, see .env.example).
 # nothing here is reachable from the internet directly: the api only listens
 # on 127.0.0.1 and nginx on the host forwards api.<domain> to it.
@@ -17,7 +17,8 @@ services:
             API_URL: https://${API_DOMAIN}/
             CORS_URL: https://${WEB_DOMAIN}
             DISABLED_SERVICES: ${DISABLED_SERVICES:-newgrounds}
-            YOUTUBE_SESSION_SERVER: http://yt-session-generator:8080/
+            # po token & visitor data for youtube, from the youtube-pot service
+            YOUTUBE_SESSION_SERVER: http://youtube-pot:4416/
             # only these services go through warp, the rest connect directly
             SERVICE_PROXIES: ${SERVICE_PROXIES:-youtube=socks5://warp:1080}
             # api keys (the telegram bot has one)
@@ -31,12 +32,20 @@ services:
             - ./keys.json:/keys.json:ro
         depends_on:
             - warp
-            - yt-session-generator
+            - youtube-pot
 
-    yt-session-generator:
-        image: ghcr.io/imputnet/yt-session-generator:webserver
+    # makes the po token youtube asks for before it sends some videos.
+    # tokens are bound to the ip they're made from, so it goes through warp,
+    # like the api's youtube requests. it has no authentication: no port is
+    # published, only the api uses it.
+    youtube-pot:
+        image: brainicism/bgutil-ytdlp-pot-provider:2.0.2
         init: true
         restart: unless-stopped
+        environment:
+            ALL_PROXY: socks5://warp:1080
+        depends_on:
+            - warp
 
     # official cloudflare warp client with a socks5/http proxy on port 1080.
     # only other containers can reach it, no port is published.
