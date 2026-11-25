@@ -4,6 +4,11 @@ import { setTunnelPort } from "../config.js";
 import { Green } from "../misc/console-text.js";
 import express from "express";
 import { withService } from "../misc/proxy.js";
+import { getHeaders } from "../stream/shared.js";
+
+// headers of the tunnel's consumer (ffmpeg) that aren't sent to the
+// service: some (like tiktok) refuse requests from ffmpeg's user agent
+const ignoredRequestHeaders = new Set(["user-agent", "host", "connection"]);
 
 const validateTunnel = (req, res) => {
     if (!req.ip.endsWith('127.0.0.1')) {
@@ -33,11 +38,14 @@ const streamTunnel = (req, res) => {
 
     // headers of a request (like range) are only used for that request:
     // the tunnel can be requested again (e.g. to continue a download), so
-    // they're added to the tunnel's own headers every time, not kept
+    // they're added to the tunnel's own headers every time, not kept.
+    // the service's usual headers go first, the tunnel's own ones last.
     streamInfo.baseHeaders ??= new Map(streamInfo.headers || []);
     streamInfo.headers = new Map([
-        ...streamInfo.baseHeaders,
+        ...Object.entries(getHeaders(streamInfo.service)),
         ...Object.entries(req.headers)
+            .filter(([ name ]) => !ignoredRequestHeaders.has(name.toLowerCase())),
+        ...streamInfo.baseHeaders,
     ]);
 
     return withService(streamInfo.service, () =>

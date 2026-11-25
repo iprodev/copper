@@ -86,6 +86,9 @@ const render = async (res, streamInfo, ffargs, estimateMultiplier) => {
 
         const [,,, muxOutput] = process.stdio;
 
+        process.on('close', shutdown);
+        res.on('close', shutdown);
+
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('Content-Disposition', contentDisposition(streamInfo.filename));
 
@@ -94,9 +97,21 @@ const render = async (res, streamInfo, ffargs, estimateMultiplier) => {
             await estimateTunnelLength(streamInfo, estimateMultiplier)
         );
 
+        // nothing is sent until ffmpeg has output something. when it has
+        // nothing to output (e.g. audio of a video without sound), the
+        // client gets an error instead of an empty file.
+        const firstChunk = await new Promise(resolve => {
+            muxOutput.once('readable', () => resolve(muxOutput.read()));
+            muxOutput.once('error', () => resolve(null));
+        });
+
+        if (!firstChunk || res.closed) {
+            return shutdown();
+        }
+
+        muxOutput.unshift(firstChunk);
         pipe(muxOutput, res, shutdown);
 
-        process.on('close', shutdown);
         res.on('finish', shutdown);
     } catch {
         shutdown();
