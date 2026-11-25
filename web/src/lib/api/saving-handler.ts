@@ -51,6 +51,9 @@ export const savingHandler = async ({ url, request, oldTaskId }: SavingHandlerAr
         // devices that shouldn't convert files locally only merge and remux
         ...(device.supports.localEncoding ? {} : { localEncoding: false }),
 
+        // hls streams can be downloaded by the browser too
+        localHLS: true,
+
         alwaysProxy: getSetting("save", "alwaysProxy"),
         downloadMode: getSetting("save", "downloadMode"),
 

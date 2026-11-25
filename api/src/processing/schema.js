@@ -42,6 +42,9 @@ export const apiSchema = z.object({
     // (audio, gifs) is too heavy for it and is done by the server
     localEncoding: z.boolean().default(true),
 
+    // true: the client can download hls streams itself (see stream/hls-tunnel.js)
+    localHLS: z.boolean().default(false),
+
     youtubeDubLang: z.string()
                      .min(2)
                      .max(8)

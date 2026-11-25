@@ -9,6 +9,7 @@
     "fetch.corrupted_file": "file wasn't downloaded fully, try again",
     "fetch.network_error": "downloading was interrupted by a network issue",
     "fetch.no_space": "there's not enough free space in the browser for this file",
+    "fetch.hls_unsupported": "this stream can't be processed in the browser",
     "ffmpeg.probe_failed": "couldn't probe this file, it may be unsupported or corrupted",
     "ffmpeg.out_of_memory": "not enough available memory, can't continue",
     "ffmpeg.no_input_format": "the file's format isn't supported",

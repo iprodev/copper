@@ -30,6 +30,8 @@ const LOCAL_FAILURES = new Set([
     "queue.fetch.no_file_reader",
     // the server streams the file without keeping it anywhere
     "queue.fetch.no_space",
+    // e.g. a live stream, or encryption the browser can't undo
+    "queue.fetch.hls_unsupported",
     "queue.ffmpeg.probe_failed",
     "queue.ffmpeg.out_of_memory",
     "queue.ffmpeg.no_input_format",

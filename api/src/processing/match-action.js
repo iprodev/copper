@@ -26,6 +26,7 @@ export default function({
     alwaysProxy,
     localProcessing,
     localEncoding = true,
+    localHLS = false,
 }) {
     let action,
         responseType = "tunnel",
@@ -259,9 +260,8 @@ export default function({
         params.type = "proxy";
     }
 
-    // TODO: add support for HLS
-    // (very painful)
-    if (!params.isHLS && responseType !== "picker") {
+    // hls streams are only processed locally by clients that can download them
+    if ((!params.isHLS || localHLS) && responseType !== "picker") {
         const isPreferredWithExtra =
             localProcessing === "preferred"
             && extraProcessingTypes.has(params.type)

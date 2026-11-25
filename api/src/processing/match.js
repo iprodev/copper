@@ -358,6 +358,7 @@ export default async function({ host, patternMatch, params, authType }) {
             alwaysProxy: params.alwaysProxy || localProcessing === "forced",
             localProcessing,
             localEncoding: params.localEncoding,
+            localHLS: params.localHLS,
         })
     } catch {
         return createResponse("error", {
