@@ -28,8 +28,8 @@ const contacts = {
 }
 
 const siriShortcuts = {
-    photos: "https://www.icloud.com/shortcuts/14e9aebf04b24156acc34ceccf7e6fcd",
-    files: "https://www.icloud.com/shortcuts/2134cd9d4d6b41448b2201f933542b2e",
+    photos: "https://www.icloud.com/shortcuts/80ea448d6d58478ea3062cd6171d0d61",
+    files: "https://www.icloud.com/shortcuts/53d5f2cb165d4921951d3c70d2584fc0",
 };
 
 const docs = {
