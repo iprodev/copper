@@ -35,14 +35,26 @@ const updateSession = (newSession) => {
     session = newSession;
 }
 
-const loadSession = async () => {
+// the session server is bgutil's po token provider
+// (https://github.com/Brainicism/bgutil-ytdlp-pot-provider). it only accepts
+// json requests (415 otherwise). without a content binding in the request,
+// it makes new visitor data and returns it as the content binding.
+export const loadSession = async () => {
     const sessionServerUrl = new URL(env.ytSessionServer);
     sessionServerUrl.pathname = "/get_pot";
 
-    const newSession = await fetch(
-        sessionServerUrl,
-        { method: 'POST', dispatcher: defaultAgent }
-    ).then(a => a.json());
+    const response = await fetch(sessionServerUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+        dispatcher: defaultAgent,
+        signal: AbortSignal.timeout(60000),
+    });
+
+    const newSession = await response.json();
+    if (!response.ok) {
+        throw `session server answered ${response.status}: ${newSession?.error ?? "unknown error"}`;
+    }
 
     validateSession(newSession);
 

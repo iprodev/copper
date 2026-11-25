@@ -55,11 +55,12 @@ services:
             - /var/run/docker.sock:/var/run/docker.sock
 
     # if needed, use this image for automatically generating poToken & visitor_data
-    # yt-session-generator:
-    #     image: ghcr.io/imputnet/yt-session-generator:webserver
+    # (and set YOUTUBE_SESSION_SERVER: http://youtube-pot:4416/ in the api's environment)
+    # youtube-pot:
+    #     image: brainicism/bgutil-ytdlp-pot-provider:2.0.2
 
     #     init: true
     #     restart: unless-stopped
-    #     container_name: yt-session-generator
+    #     container_name: youtube-pot
     #     labels:
     #       - com.centurylinklabs.watchtower.scope=fetchr

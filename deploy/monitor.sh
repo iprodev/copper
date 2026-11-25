@@ -50,7 +50,7 @@ text() {
             youtube.fail) echo "🔴 دانلود از یوتیوب کار نمی‌کند." ;;
             youtube.ok) echo "🟢 دانلود از یوتیوب دوباره کار می‌کند." ;;
             youtube.fixed) echo "🔧 یوتیوب IP قبلی WARP را بلاک کرده بود. WARP دوباره ثبت‌نام شد و IP جدید گرفت. دانلود از یوتیوب دوباره کار می‌کند." ;;
-            youtube.unfixed) echo "ثبت‌نام دوباره‌ی WARP هم کمکی نکرد. لاگ‌ها را بررسی کنید: docker compose logs api warp yt-session-generator" ;;
+            youtube.unfixed) echo "ثبت‌نام دوباره‌ی WARP هم کمکی نکرد. لاگ‌ها را بررسی کنید: docker compose logs api warp youtube-pot" ;;
             containers.fail) echo "🔴 این کانتینرها اجرا نمی‌شوند:" ;;
             containers.ok) echo "🟢 همه‌ی کانتینرها دوباره اجرا می‌شوند." ;;
             disk.fail) echo "🔴 دیسک سرور تقریباً پر است:" ;;
@@ -69,7 +69,7 @@ text() {
             youtube.fail) echo "🔴 youtube downloads don't work." ;;
             youtube.ok) echo "🟢 youtube downloads work again." ;;
             youtube.fixed) echo "🔧 youtube had blocked warp's ip. warp registered again and got a new ip. youtube downloads work again." ;;
-            youtube.unfixed) echo "registering warp again didn't help. check the logs: docker compose logs api warp yt-session-generator" ;;
+            youtube.unfixed) echo "registering warp again didn't help. check the logs: docker compose logs api warp youtube-pot" ;;
             containers.fail) echo "🔴 these containers aren't running:" ;;
             containers.ok) echo "🟢 all containers are running again." ;;
             disk.fail) echo "🔴 the server's disk is almost full:" ;;
