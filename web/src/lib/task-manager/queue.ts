@@ -146,7 +146,9 @@ const showError = (errorCode: string) => {
 export const createSavePipeline = (
     info: FetchrLocalProcessingResponse,
     request: FetchrSaveRequestBody,
-    oldTaskId?: string
+    oldTaskId?: string,
+    // quiet: the queue isn't opened (used when a task gets new tunnels)
+    { quiet = false, refreshes = 0 }: { quiet?: boolean, refreshes?: number } = {},
 ) => {
     // this is a pre-queue part of processing,
     // so errors have to be returned via a regular dialog
@@ -221,9 +223,13 @@ export const createSavePipeline = (
         filename: info.output.filename,
         mimeType: info.output.type,
         mediaType: getMediaType(info.output.type) || "file",
+        refreshes,
+        createdAt: Date.now(),
     });
 
-    openQueuePopover();
+    if (!quiet) {
+        openQueuePopover();
+    }
 }
 
 export const getProgress = (item: FetchrQueueItem, currentTasks: FetchrCurrentTasks): number => {

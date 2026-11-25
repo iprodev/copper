@@ -2,7 +2,8 @@ import FFmpegWorker from "$lib/task-manager/workers/ffmpeg?worker";
 
 import { killWorker } from "$lib/task-manager/run-worker";
 import { updateWorkerProgress } from "$lib/state/task-manager/current-tasks";
-import { pipelineTaskDone, itemError, queue } from "$lib/state/task-manager/queue";
+import { pipelineTaskDone, queue } from "$lib/state/task-manager/queue";
+import { handleFailure } from "$lib/task-manager/recovery";
 
 import type { FileInfo } from "$lib/types/libav";
 import type { FetchrQueue } from "$lib/types/queue";
@@ -22,7 +23,9 @@ export const runFFmpegWorker = async (
     const worker = new FFmpegWorker();
 
     // sometimes chrome refuses to start libav wasm,
-    // so we check if it started, try 10 more times if not, and kill self if it still doesn't work
+    // so we check if it started, try 2 more times if not, and give up after that.
+    // a task that can't be processed in the browser goes to the server instead
+    // (see task-manager/recovery.ts), so there's no need to keep trying for long
     // TODO: fix the underlying issue because this is ridiculous
 
     if (resetStartCounter) startAttempts = 0;
@@ -33,7 +36,7 @@ export const runFFmpegWorker = async (
 
         if (bumpAttempts === 10) {
             startAttempts++;
-            if (startAttempts <= 10) {
+            if (startAttempts <= 2) {
                 killWorker(worker, unsubscribe, startCheck);
                 return await runFFmpegWorker(
                     workerId, parentId,
@@ -42,7 +45,7 @@ export const runFFmpegWorker = async (
                 );
             } else {
                 killWorker(worker, unsubscribe, startCheck);
-                return itemError(parentId, workerId, "queue.worker_didnt_start");
+                return handleFailure(parentId, workerId, "queue.worker_didnt_start");
             }
         }
     }, 500);
@@ -67,7 +70,7 @@ export const runFFmpegWorker = async (
         console.error("ffmpeg worker crashed:", e);
         killWorker(worker, unsubscribe, startCheck);
 
-        return itemError(parentId, workerId, "queue.generic_error");
+        return handleFailure(parentId, workerId, "queue.generic_error");
     };
 
     let totalDuration: number | null = null;
@@ -100,7 +103,7 @@ export const runFFmpegWorker = async (
 
         if (eventData.error) {
             killWorker(worker, unsubscribe, startCheck);
-            return itemError(parentId, workerId, eventData.error);
+            return handleFailure(parentId, workerId, eventData.error);
         }
     };
 }

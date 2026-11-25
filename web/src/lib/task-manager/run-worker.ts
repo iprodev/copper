@@ -1,6 +1,7 @@
 import { get } from "svelte/store";
 import { device } from "$lib/device";
-import { queue, itemError } from "$lib/state/task-manager/queue";
+import { queue } from "$lib/state/task-manager/queue";
+import { handleFailure } from "$lib/task-manager/recovery";
 
 import { runFFmpegWorker } from "$lib/task-manager/runners/ffmpeg";
 import { runFetchWorker } from "$lib/task-manager/runners/fetch";
@@ -28,7 +29,7 @@ export const startWorker = async ({ worker, workerId, dependsOn, parentId, worke
                 for (const workerId of dependsOn) {
                     const file = parent.pipelineResults[workerId];
                     if (!file) {
-                        return itemError(parentId, workerId, "queue.ffmpeg.no_args");
+                        return handleFailure(parentId, workerId, "queue.ffmpeg.no_args");
                     }
 
                     files.push(file);
@@ -47,7 +48,7 @@ export const startWorker = async ({ worker, workerId, dependsOn, parentId, worke
                     /*resetStartCounter=*/true,
                 );
             } else {
-                itemError(parentId, workerId, "queue.ffmpeg.no_args");
+                handleFailure(parentId, workerId, "queue.ffmpeg.no_args");
             }
             break;
         }

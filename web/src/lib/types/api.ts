@@ -113,7 +113,7 @@ export type FetchrServerInfo = {
 // this allows for extra properties, which is not ideal,
 // but i couldn't figure out how to make a strict partial :(
 export type FetchrSaveRequestBody =
-    { url: string } & Partial<Omit<FetchrSettings['save'], 'savingMethod'>>;
+    { url: string, localEncoding?: boolean, localHLS?: boolean } & Partial<Omit<FetchrSettings['save'], 'savingMethod'>>;
 
 export type FetchrSessionResponse = FetchrSession | FetchrErrorResponse;
 export type FetchrServerInfoResponse = FetchrServerInfo | FetchrErrorResponse;

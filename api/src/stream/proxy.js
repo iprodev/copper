@@ -7,6 +7,9 @@ import { getHeaders, closeRequest, closeResponse, pipe } from "./shared.js";
 const defaultAgent = new Agent();
 
 export default async function (streamInfo, res) {
+    // every request of a tunnel gets its own internal stream (see wrapStream),
+    // so it can go away with the request: an interrupted download continues
+    // with a new request for the rest (a range request)
     const abortController = new AbortController();
     const shutdown = () => (
         closeRequest(abortController),
@@ -30,7 +33,7 @@ export default async function (streamInfo, res) {
 
         res.status(statusCode);
 
-        for (const headerName of ['accept-ranges', 'content-type', 'content-length']) {
+        for (const headerName of ['accept-ranges', 'content-type', 'content-length', 'content-range']) {
             if (headers[headerName]) {
                 res.setHeader(headerName, headers[headerName]);
             }

@@ -28,6 +28,7 @@ const device = {
         directDownload: false,
         haptics: false,
         defaultLocalProcessing: false,
+        localEncoding: false,
         multithreading: false,
     },
     userAgent: "sveltekit server",
@@ -84,8 +85,13 @@ if (browser) {
         // so they're enabled only on ios 18+ for now
         haptics: modernIOS,
 
-        // enable local processing by default everywhere but android chrome
-        defaultLocalProcessing: !(device.is.android && device.browser.chrome),
+        // local processing is on by default everywhere
+        defaultLocalProcessing: true,
+
+        // converting (audio, gifs) is heavy and was unreliable in android chrome,
+        // so it's left to the server there. merging and remuxing are light and
+        // done locally. anything that fails locally goes to the server anyway.
+        localEncoding: !(device.is.android && device.browser.chrome),
         multithreading: !iOS || iosVersion >= 18,
     };
 

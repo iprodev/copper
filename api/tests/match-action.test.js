@@ -56,6 +56,27 @@ test("local processing is used only when requested", () => {
     assert.equal(run(r, "bilibili", { localProcessing: "preferred" }).tunnel.length, 2);
 });
 
+test("clients that can't encode only get merging and remuxing", () => {
+    const merge = { urls: ["https://cdn.example/v.mp4", "https://cdn.example/a.mp4"], filename: "v.mp4" };
+    const audio = { urls: "https://cdn.example/v.mp4", audioFilename: "a" };
+    const preferred = { localProcessing: "preferred", localEncoding: false };
+
+    // merging is light, it's still done by the client
+    assert.equal(run(merge, "bilibili", preferred).status, "local-processing");
+
+    // converting audio is done by the server
+    assert.equal(run(audio, "twitter", { ...preferred, isAudioOnly: true }).status, "tunnel");
+    assert.equal(run(audio, "twitter", { localProcessing: "preferred", isAudioOnly: true }).status, "local-processing");
+
+    // copying the audio as it is needs no encoding
+    const copy = run(audio, "twitter", { ...preferred, isAudioOnly: true, audioFormat: "best" });
+    assert.equal(copy.status, "local-processing");
+    assert.equal(copy.audio.copy, true);
+
+    // forced local processing stays forced
+    assert.equal(run(audio, "twitter", { ...preferred, localProcessing: "forced", isAudioOnly: true }).status, "local-processing");
+});
+
 test("picker responses keep their items", () => {
     const picker = [{ type: "photo", url: "https://cdn.example/1.jpg" }];
     const body = run({ picker }, "instagram");

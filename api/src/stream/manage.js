@@ -20,11 +20,18 @@ const streamCache = new Store('streams');
 
 const internalStreamCache = new Map();
 
+// hls tunnels for clients live longer: downloading hundreds of segments
+// takes longer than a regular tunnel lives
+const HLS_TUNNEL_LIFESPAN = 3600;
+
 export function createStream(obj) {
+    // in seconds
+    const lifespan = obj.lifespan ?? env.streamLifespan;
+
     const streamID = nanoid(),
         iv = randomBytes(16).toString('base64url'),
         secret = randomBytes(32).toString('base64url'),
-        exp = new Date().getTime() + env.streamLifespan * 1000,
+        exp = new Date().getTime() + lifespan * 1000,
         hmac = hashHmac(`${streamID},${exp},${iv},${secret}`, 'stream').toString('base64url'),
         streamData = {
             exp: exp,
@@ -55,7 +62,7 @@ export function createStream(obj) {
     streamCache.set(
         streamID,
         encryptStream(streamData, iv, secret),
-        env.streamLifespan
+        lifespan
     );
 
     let streamLink = new URL('/tunnel', env.apiURL);
@@ -91,14 +98,20 @@ export function createProxyTunnels(info) {
     }
 
     for (const url of urls) {
-        proxyTunnels.push(
-            createStream({
-                ...tunnelTemplate,
-                url,
-                service: info?.service,
-                originalRequest: info?.originalRequest,
-            })
-        );
+        const tunnel = createStream({
+            ...tunnelTemplate,
+            url,
+            service: info?.service,
+            originalRequest: info?.originalRequest,
+            ...(info?.isHLS ? {
+                isHLS: true,
+                lifespan: Math.max(env.streamLifespan, HLS_TUNNEL_LIFESPAN),
+            } : {}),
+        });
+
+        // tells the client to download it as an hls stream (stream/hls-tunnel.js).
+        // extra parameters aren't part of the tunnel's signature.
+        proxyTunnels.push(info?.isHLS ? `${tunnel}&hls=1` : tunnel);
     }
 
     if (info.subtitles) {

@@ -17,6 +17,7 @@ import { randomizeCiphers } from "../misc/randomize-ciphers.js";
 import { verifyTurnstileToken } from "../security/turnstile.js";
 import { friendlyServiceName } from "../processing/service-alias.js";
 import { verifyStream } from "../stream/manage.js";
+import hlsTunnel from "../stream/hls-tunnel.js";
 import { createResponse, normalizeRequest, getIP } from "../processing/request.js";
 import { setupTunnelHandler } from "./itunnel.js";
 import { buildGlobalDispatcher, withService } from "../misc/proxy.js";
@@ -101,6 +102,10 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         handler: handleRateExceeded
     });
 
+    // parts of hls streams downloaded by clients (stream/hls-tunnel.js):
+    // one file can have hundreds of segments, so they have their own limit
+    const isHlsPart = (req) => ['index', 'segment', 'key', 'map'].includes(String(req.query.hls));
+
     const apiTunnelLimiter = rateLimit({
         windowMs: env.tunnelRateLimitWindow * 1000,
         limit: env.tunnelRateLimitMax,
@@ -108,6 +113,20 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         legacyHeaders: false,
         keyGenerator: req => keyGenerator(req),
         store: await createStore('tunnel'),
+        skip: isHlsPart,
+        handler: (_, res) => {
+            return res.sendStatus(429);
+        }
+    });
+
+    const apiHlsPartLimiter = rateLimit({
+        windowMs: env.tunnelRateLimitWindow * 1000,
+        limit: env.tunnelRateLimitMax * 25,
+        standardHeaders: 'draft-6',
+        legacyHeaders: false,
+        keyGenerator: req => keyGenerator(req),
+        store: await createStore('tunnel-hls'),
+        skip: req => !isHlsPart(req),
         handler: (_, res) => {
             return res.sendStatus(429);
         }
@@ -285,12 +304,14 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         methods: ['GET'],
         exposedHeaders: [
             'Estimated-Content-Length',
-            'Content-Disposition'
+            'Content-Disposition',
+            // where the rest of an interrupted download starts
+            'Content-Range',
         ],
         ...corsConfig,
     }));
 
-    app.get('/tunnel', apiTunnelLimiter, async (req, res) => {
+    app.get('/tunnel', apiTunnelLimiter, apiHlsPartLimiter, async (req, res) => {
         const id = String(req.query.id);
         const exp = String(req.query.exp);
         const sig = String(req.query.sig);
@@ -312,6 +333,11 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         const streamInfo = await verifyStream(id, sig, exp, sec, iv);
         if (!streamInfo?.service) {
             return res.status(streamInfo.status).end();
+        }
+
+        // segments of an hls stream, for clients that process files themselves
+        if (streamInfo.type === 'proxy' && streamInfo.isHLS && req.query.hls && req.query.hls !== '1') {
+            return hlsTunnel(id, streamInfo, req.query, res);
         }
 
         if (streamInfo.type === 'proxy') {

@@ -14,10 +14,12 @@ const hlsSkippedHeaders = new Set(["content-length", "content-range", "accept-ra
 // the tunnel consumer (ffmpeg) must never follow redirects on its own
 const alwaysSkippedHeaders = new Set(["location", "refresh"]);
 
-async function* readChunks(streamInfo, size) {
-    let read = 0n, chunksSinceTransplant = 0;
+// reads the file from `start` in chunks. `signal` stops this request only,
+// `stop()` ends it after the current chunk.
+async function* readChunks(streamInfo, size, start, signal, stop) {
+    let read = start, chunksSinceTransplant = 0;
     while (read < size) {
-        if (streamInfo.controller.signal.aborted) {
+        if (signal.aborted) {
             throw new Error("controller aborted");
         }
 
@@ -27,7 +29,7 @@ async function* readChunks(streamInfo, size) {
                 Range: `bytes=${read}-${read + CHUNK_SIZE}`
             },
             dispatcher: streamInfo.dispatcher,
-            signal: streamInfo.controller.signal,
+            signal,
             maxRedirections: 4
         });
 
@@ -50,7 +52,7 @@ async function* readChunks(streamInfo, size) {
         const received = BigInt(chunk.headers['content-length']);
 
         if (received < expected / 2n) {
-            closeRequest(streamInfo.controller);
+            stop();
         }
 
         for await (const data of chunk.body) {
@@ -62,8 +64,11 @@ async function* readChunks(streamInfo, size) {
 }
 
 async function handleChunkedStream(streamInfo, res) {
-    const { signal } = streamInfo.controller;
-    const cleanup = () => (res.end(), closeRequest(streamInfo.controller));
+    // only this request is stopped when the client goes away: the tunnel
+    // stays usable, so a download can continue with a range request
+    const requestController = new AbortController();
+    const signal = AbortSignal.any([streamInfo.controller.signal, requestController.signal]);
+    const cleanup = () => (res.end(), requestController.abort());
 
     try {
         let req, attempts = 3;
@@ -91,7 +96,17 @@ async function handleChunkedStream(streamInfo, res) {
             return cleanup();
         }
 
-        const generator = readChunks(streamInfo, size);
+        // "bytes=N-": the client already has the first N bytes
+        const rangeStart = String(streamInfo.headers?.get('range') ?? '').match(/^bytes=(\d+)-$/)?.[1];
+        const start = rangeStart ? BigInt(rangeStart) : 0n;
+
+        if (start >= size) {
+            res.status(416);
+            res.setHeader('content-range', `bytes */${size}`);
+            return cleanup();
+        }
+
+        const generator = readChunks(streamInfo, size, start, signal, () => requestController.abort());
 
         const abortGenerator = () => {
             generator.return();
@@ -102,9 +117,15 @@ async function handleChunkedStream(streamInfo, res) {
 
         const stream = Readable.from(generator);
 
-        for (const headerName of ['content-type', 'content-length']) {
-            const headerValue = req.headers.get(headerName);
-            if (headerValue) res.setHeader(headerName, headerValue);
+        const contentType = req.headers.get('content-type');
+        if (contentType) res.setHeader('content-type', contentType);
+
+        res.setHeader('accept-ranges', 'bytes');
+        res.setHeader('content-length', String(size - start));
+
+        if (start > 0n) {
+            res.status(206);
+            res.setHeader('content-range', `bytes ${start}-${size - 1n}/${size}`);
         }
 
         pipe(stream, res, cleanup);

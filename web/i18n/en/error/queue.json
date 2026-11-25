@@ -1,16 +1,15 @@
 {
     "no_final_file": "no final file output",
     "worker_didnt_start": "couldn't start a processing worker",
-
     "generic_error": "processing worker crashed, see console for details",
-
     "fetch.crashed": "fetch worker crashed, see console for details",
     "fetch.bad_response": "couldn't access the file tunnel",
     "fetch.no_file_reader": "couldn't write a file to cache",
     "fetch.empty_tunnel": "file tunnel is empty, try again in a few minutes",
     "fetch.corrupted_file": "file wasn't downloaded fully, try again",
     "fetch.network_error": "downloading was interrupted by a network issue",
-
+    "fetch.no_space": "there's not enough free space in the browser for this file",
+    "fetch.hls_unsupported": "this stream can't be processed in the browser",
     "ffmpeg.probe_failed": "couldn't probe this file, it may be unsupported or corrupted",
     "ffmpeg.out_of_memory": "not enough available memory, can't continue",
     "ffmpeg.no_input_format": "the file's format isn't supported",
