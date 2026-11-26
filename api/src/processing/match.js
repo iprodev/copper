@@ -280,6 +280,7 @@ export default async function({ host, patternMatch, params, authType }) {
             case "threads":
                 r = await threads({
                     id: patternMatch.id,
+                    shareId: patternMatch.shareId,
                     alwaysProxy: params.alwaysProxy,
                     dispatcher,
                 });

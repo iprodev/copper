@@ -42,3 +42,35 @@ test("pages without the post (e.g. instagram's login page when rate-limited)", (
     assert.equal(parsePostPage('<script type="application/json">{"xig_polaris_media": broken</script>'), undefined);
     assert.equal(parsePostPage(page(null)), undefined);
 });
+
+// instagram's answers for a post the owner limited by age, logged out
+const gatedInstagram = (oembed) => async (input) => {
+    const url = new URL(input);
+    if (url.pathname === "/api/v1/oembed/") {
+        return Response.json(oembed, { status: 400 });
+    }
+    // nothing else shows the post either
+    return new Response("<html></html>", { status: 200 });
+}
+
+test("a post limited by age is an age error, not \"nothing found\"", async (t) => {
+    const { default: instagram } = await import("../src/processing/services/instagram.js");
+    const realFetch = globalThis.fetch;
+    t.after(() => globalThis.fetch = realFetch);
+
+    globalThis.fetch = gatedInstagram({
+        message: "geoblock_required",
+        gating_type: "unappealable",
+        title: "People under 15 can't see this content",
+        description: "This account has set limits on who can see their content.",
+    });
+    assert.deepEqual(await instagram({ postId: "DgK_f78x8Sp" }), { error: "content.post.age" });
+
+    // limited to some countries
+    globalThis.fetch = gatedInstagram({
+        message: "geoblock_required",
+        gating_type: "unappealable",
+        title: "This content isn't available in your country",
+    });
+    assert.deepEqual(await instagram({ postId: "DgK_f78x8Sp" }), { error: "content.region" });
+});

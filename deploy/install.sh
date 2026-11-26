@@ -164,6 +164,14 @@ fi
 # the api runs as an unprivileged user and only needs to read it
 chmod 644 "$INSTALL_DIR/keys.json"
 
+# cookies of accounts, empty until one is added with cookie.sh. the api
+# (uid 1000) reads them and writes updated ones back.
+mkdir -p "$INSTALL_DIR/cookies"
+[[ -f "$INSTALL_DIR/cookies/cookies.json" ]] || printf '{}\n' > "$INSTALL_DIR/cookies/cookies.json"
+chown -R 1000:1000 "$INSTALL_DIR/cookies"
+chmod 700 "$INSTALL_DIR/cookies"
+chmod 600 "$INSTALL_DIR/cookies/cookies.json"
+
 if [[ $FIRST_INSTALL -eq 1 ]] && confirm "set up the telegram bot now? (it can be done later too)"; then
     BOT_TOKEN="$(ask "bot token from @BotFather" "")"
     if [[ "$BOT_TOKEN" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]]; then
@@ -356,6 +364,10 @@ bold "6. monitoring"
 
 cp "$SCRIPT_DIR/monitor.sh" "$INSTALL_DIR/monitor.sh"
 chmod 755 "$INSTALL_DIR/monitor.sh"
+cp "$SCRIPT_DIR/cookie.sh" "$INSTALL_DIR/cookie.sh"
+cp "$SCRIPT_DIR/instagram-login.py" "$INSTALL_DIR/instagram-login.py"
+chmod 755 "$INSTALL_DIR/cookie.sh"
+chmod 644 "$INSTALL_DIR/instagram-login.py"
 
 if systemctl list-unit-files fetchr-monitor.timer > /dev/null 2>&1 && [[ -f /etc/systemd/system/fetchr-monitor.timer ]]; then
     ok "monitoring is on (updated)"

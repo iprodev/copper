@@ -67,7 +67,8 @@ export const testers = {
         pattern.id?.length <= 6,
 
     "threads": pattern =>
-        pattern.id?.length <= 32 && (!pattern.user || pattern.user.length <= 64),
+        pattern.shareId?.length <= 32 ||
+        (pattern.id?.length <= 32 && (!pattern.user || pattern.user.length <= 64)),
 
     "tiktok": pattern =>
         pattern.postId?.length <= 21 ||
