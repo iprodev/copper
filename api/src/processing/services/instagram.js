@@ -55,6 +55,44 @@ const getObjectFromEntries = (name, data) => {
     return obj && JSON.parse(obj);
 }
 
+// the post page (instagram.com/p/<id>/) has the post in a json script, as
+// "xig_polaris_media", with the same fields as the mobile api (video_versions,
+// image_versions2, carousel_media). yt-dlp reads it from there too. it isn't
+// there when instagram rate-limits (a login page is served instead).
+const findKey = (value, key, depth = 0) => {
+    if (!value || typeof value !== "object" || depth > 64) return;
+    if (key in value) return value[key];
+
+    for (const child of Object.values(value)) {
+        const found = findKey(child, key, depth + 1);
+        if (found) return found;
+    }
+}
+
+export const parsePostPage = (html) => {
+    const scripts = html?.matchAll(/<script type="application\/json"[^>]*>(.*?)<\/script>/gs) ?? [];
+
+    for (const [ , script ] of scripts) {
+        if (!script.includes("xig_polaris_media")) continue;
+
+        let post;
+        try {
+            post = findKey(JSON.parse(script), "xig_polaris_media")?.if_not_gated_logged_out;
+        } catch {
+            continue;
+        }
+
+        if (!post) continue;
+
+        // a video without its links isn't enough
+        if (post.media_type === 2 && !post.video_versions?.length) return;
+
+        if (post.video_versions || post.image_versions2 || post.carousel_media) {
+            return post;
+        }
+    }
+}
+
 export default function instagram(obj) {
     const dispatcher = obj.dispatcher;
 
@@ -151,6 +189,18 @@ export default function instagram(obj) {
         embedData = JSON.parse(embedData.contextJSON);
 
         return embedData;
+    }
+
+    async function requestPage(id, cookie) {
+        const html = await fetch(`https://www.instagram.com/p/${id}/`, {
+            headers: {
+                ...embedHeaders,
+                cookie
+            },
+            dispatcher
+        }).then(r => r.status === 200 ? r.text() : undefined).catch(() => {});
+
+        return parsePostPage(html);
     }
 
     async function getGQLParams(id, cookie) {
@@ -414,9 +464,21 @@ export default function instagram(obj) {
     }
 
     async function getPost(id, alwaysProxy) {
+        // the embed page (and sometimes the web api) lists a reel as a video
+        // without its link, only with its cover image. that isn't enough:
+        // the next method is tried, instead of saving the cover as a photo.
+        const missingVideo = (data) => {
+            const media = data?.gql_data?.shortcode_media || data?.gql_data?.xdt_shortcode_media;
+            if (!media) return false;
+
+            const nodes = media.edge_sidecar_to_children?.edges?.map(e => e?.node) ?? [ media ];
+            return nodes.some(node => node?.is_video && !node.video_url);
+        }
+
         const hasData = (data) => data
                                     && data.gql_data !== null
-                                    && data?.gql_data?.xdt_shortcode_media !== null;
+                                    && data?.gql_data?.xdt_shortcode_media !== null
+                                    && !missingVideo(data);
         let data, result;
         try {
             const cookie = getCookie('instagram');
@@ -435,6 +497,10 @@ export default function instagram(obj) {
             // mobile api (no cookie, cookie)
             if (media_id && !hasData(data)) data = await requestMobileApi(media_id);
             if (media_id && cookie && !hasData(data)) data = await requestMobileApi(media_id, { cookie });
+
+            // post page (no cookie, cookie)
+            if (!hasData(data)) data = await requestPage(id);
+            if (!hasData(data) && cookie) data = await requestPage(id, cookie);
 
             // html embed (no cookie, cookie)
             if (!hasData(data)) data = await requestHTML(id);
