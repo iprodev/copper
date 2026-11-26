@@ -96,6 +96,10 @@ export const parsePostPage = (html) => {
 export default function instagram(obj) {
     const dispatcher = obj.dispatcher;
 
+    // set when instagram says it doesn't show the post to logged-out
+    // visitors (e.g. "people under 15 can't see this content")
+    let gatedError;
+
     async function findDtsgId(cookie) {
         try {
             if (cachedDtsg.expiry > Date.now()) return cachedDtsg.value;
@@ -156,6 +160,14 @@ export default function instagram(obj) {
             },
             dispatcher
         }).then(r => r.json()).catch(() => {});
+
+        // a post the owner limited to adults, or to some countries
+        if (oembed?.gating_type || oembed?.message === "geoblock_required") {
+            const reason = `${oembed?.title ?? ""} ${oembed?.description ?? ""}`;
+            gatedError ??= /\bage\b|under \d+|\d+\+|adult|restricted/i.test(reason)
+                ? "content.post.age"
+                : "content.region";
+        }
 
         return oembed?.media_id;
     }
@@ -467,17 +479,22 @@ export default function instagram(obj) {
         // the embed page (and sometimes the web api) lists a reel as a video
         // without its link, only with its cover image. that isn't enough:
         // the next method is tried, instead of saving the cover as a photo.
+        const gqlMedia = (data) => data?.gql_data?.shortcode_media || data?.gql_data?.xdt_shortcode_media;
+
         const missingVideo = (data) => {
-            const media = data?.gql_data?.shortcode_media || data?.gql_data?.xdt_shortcode_media;
+            const media = gqlMedia(data);
             if (!media) return false;
 
             const nodes = media.edge_sidecar_to_children?.edges?.map(e => e?.node) ?? [ media ];
             return nodes.some(node => node?.is_video && !node.video_url);
         }
 
-        const hasData = (data) => data
-                                    && data.gql_data !== null
-                                    && data?.gql_data?.xdt_shortcode_media !== null
+        // the embed page and the web api give gql_data with the post in it,
+        // the mobile api and the post page give the post itself. anything
+        // else (e.g. an embed page without gql_data, for posts instagram
+        // doesn't show logged out) isn't data, so the next method is tried.
+        const hasData = (data) => !!data
+                                    && !!(gqlMedia(data) || data.video_versions || data.image_versions2 || data.carousel_media)
                                     && !missingVideo(data);
         let data, result;
         try {
@@ -512,6 +529,7 @@ export default function instagram(obj) {
         } catch {}
 
         if (!hasData(data)) {
+            if (gatedError) return { error: gatedError };
             return getErrorContext(id);
         }
 
