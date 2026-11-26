@@ -90,9 +90,12 @@ async function handleChunkedStream(streamInfo, res) {
             } else break;
         }
 
-        const size = BigInt(req.headers.get('content-length'));
+        const size = BigInt(req.headers.get('content-length') ?? 0);
 
+        // the service refused the file (e.g. youtube's 403): an error, not
+        // an empty file that looks like a finished download
         if (req.status !== 200 || !size) {
+            res.status(502);
             return cleanup();
         }
 
