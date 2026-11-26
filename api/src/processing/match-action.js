@@ -188,6 +188,8 @@ export default function({
                 case "ok":
                 case "newgrounds":
                 case "xvideos":
+                // pornhub's direct mp4 files (see services/pornhub.js)
+                case "pornhub":
                     params = { type: "proxy" };
                     break;
 
