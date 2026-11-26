@@ -76,6 +76,15 @@
         }
     },
     {
+        "name": "text post with an instagram reel attached",
+        "url": "https://www.threads.com/share/BAbXih6q92",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "redirect"
+        }
+    },
+    {
         "name": "inexistent post",
         "url": "https://www.threads.com/@instagram/post/XXXXXXXXXXX",
         "params": {},
