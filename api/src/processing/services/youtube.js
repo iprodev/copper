@@ -4,9 +4,10 @@ import ivm from "isolated-vm";
 import { fetch, Request } from "undici";
 import { Innertube, Platform, Session } from "youtubei.js";
 
-import { env } from "../../config.js";
+import { env, genericUserAgent } from "../../config.js";
 import { getCookie } from "../cookie/manager.js";
 import { getYouTubeSession } from "../helpers/youtube-session.js";
+import { getTvUrls } from "../helpers/youtube-tv.js";
 
 // https://github.com/LuanRT/YouTube.js/pull/1052
 Platform.shim.eval = async (data) => {
@@ -556,6 +557,36 @@ export default async function (o) {
         innertubeClient
     };
 
+    // for some videos googlevideo refuses the links of the ios
+    // client (403 on HEAD, and after about the first minute of the file).
+    // then the same formats are fetched with the tv client instead
+    // (helpers/youtube-tv.js).
+    const tvFallback = async (urls, formats) => {
+        if (useHLS || !clientsWithNoCipher.includes(innertubeClient)) return urls;
+
+        const probe = await fetch(urls[0], {
+            method: "HEAD",
+            headers: { "user-agent": genericUserAgent },
+            dispatcher: o.dispatcher,
+        }).catch(() => {});
+
+        if (probe?.status !== 403) return urls;
+
+        try {
+            const tvUrls = await getTvUrls({
+                id: o.id,
+                formats: formats.map(f => ({ itag: f.itag, audioTrackId: f.audio_track?.id })),
+                innertube,
+                dispatcher: o.dispatcher,
+            });
+            if (tvUrls) return tvUrls;
+        } catch (e) {
+            console.error(`youtube: tv client fallback failed for ${o.id}:`, e?.message ?? e);
+        }
+
+        return urls;
+    }
+
     if (audio && o.isAudioOnly) {
         let bestAudio = codec === "h264" ? "m4a" : "opus";
         let urls = audio.url;
@@ -567,6 +598,10 @@ export default async function (o) {
 
         if (!clientsWithNoCipher.includes(innertubeClient) && innertube) {
             urls = await audio.decipher(innertube.session.player);
+        }
+
+        if (!useHLS) {
+            [ urls ] = await tvFallback([ urls ], [ audio ]);
         }
 
         let cover = `https://i.ytimg.com/vi/${o.id}/maxresdefault.jpg`;
@@ -612,6 +647,8 @@ export default async function (o) {
             filenameAttributes.resolution = `${video.width}x${video.height}`;
             filenameAttributes.extension = o.container === "auto" ? codecList[codec].container : o.container;
 
+            const formats = [ video, audio ];
+
             if (!clientsWithNoCipher.includes(innertubeClient) && innertube) {
                 video = await video.decipher(innertube.session.player);
                 audio = await audio.decipher(innertube.session.player);
@@ -619,6 +656,8 @@ export default async function (o) {
                 video = video.url;
                 audio = audio.url;
             }
+
+            [ video, audio ] = await tvFallback([ video, audio ], formats);
         }
 
         filenameAttributes.qualityLabel = `${resolution}p`;

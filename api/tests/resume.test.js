@@ -95,3 +95,25 @@ test("a client going away doesn't end the tunnel", async (t) => {
     await again.done;
     assert.ok(again.body().equals(file));
 });
+
+test("a file the service refuses is an error, not an empty file", async (t) => {
+    // like googlevideo for links it doesn't accept
+    const refusing = http.createServer((_, res) => {
+        res.statusCode = 403;
+        res.end();
+    });
+    await new Promise(resolve => refusing.listen(0, "127.0.0.1", resolve));
+    t.after(() => refusing.close());
+
+    const res = response();
+    await internalStream({
+        url: `http://127.0.0.1:${refusing.address().port}/video.mp4`,
+        service: "youtube",
+        headers: new Map(),
+        controller: new AbortController(),
+    }, res);
+    await res.done;
+
+    assert.equal(res.statusCode, 502);
+    assert.equal(res.body().length, 0);
+});
