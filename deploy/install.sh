@@ -293,6 +293,28 @@ if ! grep -qF "127.0.0.1:$API_PORT;" "$api_conf"; then
     sed -i -E "s#proxy_pass http://127\.0\.0\.1:[0-9]+;#proxy_pass http://127.0.0.1:$API_PORT;#" "$api_conf"
 fi
 
+# web configs from older versions don't send .mjs files (ffmpeg in the
+# browser) as javascript, so on-device processing always failed. the block is
+# added to each server block of the site (certbot may have made more than one).
+web_conf="$available/fetchr-web.conf"
+if ! grep -qF "fetchr-mjs" "$web_conf"; then
+    cp "$web_conf" "$web_conf.fetchr-backup"
+    backups+=("$web_conf.fetchr-backup")
+    awk '
+        { print }
+        /^[[:space:]]*root \/var\/www\/fetchr\/current;/ {
+            print ""
+            print "    # fetchr-mjs: javascript modules (ffmpeg in the browser). nginx versions"
+            print "    # that don'"'"'t know the .mjs extension send it as application/octet-stream,"
+            print "    # and browsers refuse to run that as a module."
+            print "    location ~* \\.mjs$ {"
+            print "        default_type text/javascript;"
+            print "    }"
+        }
+    ' "$web_conf.fetchr-backup" > "$web_conf"
+    ok "javascript modules (.mjs) are sent with the right type now"
+fi
+
 if ! nginx -t > "$tmp/nginx-test" 2>&1; then
     cat "$tmp/nginx-test" >&2
     rollback
