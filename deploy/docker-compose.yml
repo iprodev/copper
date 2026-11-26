@@ -23,6 +23,10 @@ services:
             SERVICE_PROXIES: ${SERVICE_PROXIES:-youtube=socks5://warp:1080}
             # api keys (the telegram bot has one)
             API_KEY_URL: file:///keys.json
+            # cookies of accounts (e.g. instagram, for age-limited posts).
+            # managed with cookie.sh, see the readme. the api writes updated
+            # cookies back, so the folder is writable.
+            COOKIE_PATH: /cookies/cookies.json
             # file downloads per ip per minute. the bot's downloads all come
             # from one address, so this is higher than the default (40)
             TUNNEL_RATELIMIT_MAX: ${TUNNEL_RATELIMIT_MAX:-120}
@@ -30,6 +34,7 @@ services:
             DURATION_LIMIT: ${DURATION_LIMIT:-10800}
         volumes:
             - ./keys.json:/keys.json:ro
+            - ./cookies:/cookies
         depends_on:
             - warp
             - youtube-pot
