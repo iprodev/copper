@@ -365,7 +365,9 @@ bold "6. monitoring"
 cp "$SCRIPT_DIR/monitor.sh" "$INSTALL_DIR/monitor.sh"
 chmod 755 "$INSTALL_DIR/monitor.sh"
 cp "$SCRIPT_DIR/cookie.sh" "$INSTALL_DIR/cookie.sh"
+cp "$SCRIPT_DIR/instagram-login.py" "$INSTALL_DIR/instagram-login.py"
 chmod 755 "$INSTALL_DIR/cookie.sh"
+chmod 644 "$INSTALL_DIR/instagram-login.py"
 
 if systemctl list-unit-files fetchr-monitor.timer > /dev/null 2>&1 && [[ -f /etc/systemd/system/fetchr-monitor.timer ]]; then
     ok "monitoring is on (updated)"
