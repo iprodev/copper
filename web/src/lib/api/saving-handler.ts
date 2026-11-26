@@ -42,11 +42,19 @@ export const savingHandler = async ({ url, request, oldTaskId }: SavingHandlerAr
 
     if (!request && !url) return;
 
+    const localProcessing = get(settings).save.localProcessing;
+
     const selectedRequest = request || {
         url: url!,
 
-        // not lazy cuz default depends on device capabilities
-        localProcessing: get(settings).save.localProcessing,
+        // not lazy cuz default depends on device capabilities.
+        // on iphones and ipads, a file the browser downloaded itself is shared
+        // as a file ("save video" in the share sheet), but a link to the
+        // server is shared as a link. so with local processing on, the browser
+        // downloads every file itself there, even ones that need no processing.
+        localProcessing: device.is.iOS && localProcessing === "preferred"
+            ? "forced"
+            : localProcessing,
 
         // devices that shouldn't convert files locally only merge and remux
         ...(device.supports.localEncoding ? {} : { localEncoding: false }),

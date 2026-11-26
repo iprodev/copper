@@ -31,6 +31,32 @@ const pickVariant = (variants, quality) => {
     return sorted.find(v => shortSide(v) <= Number(quality)) ?? sorted[sorted.length - 1];
 }
 
+// width and height of the video track, from the start of an mp4 file: the
+// "tkhd" box of each track has them (as 16.16 fixed point numbers), and
+// audio tracks have 0. only works when the file starts with its "moov" box.
+export const mp4Dimensions = (buffer) => {
+    let at = 0;
+    while ((at = buffer.indexOf("tkhd", at)) !== -1) {
+        const start = at + 4;
+        // version 1 boxes have 64-bit times
+        const sizeAt = start + (buffer[start] === 1 ? 88 : 76);
+        if (sizeAt + 8 > buffer.length) return;
+
+        const width = buffer.readUInt32BE(sizeAt) >>> 16;
+        const height = buffer.readUInt32BE(sizeAt + 4) >>> 16;
+        if (width && height) return { width, height };
+
+        at = start;
+    }
+}
+
+const probeMp4 = (url) => fetch(url, {
+    headers: { ...headers, range: "bytes=0-65535" },
+    signal: AbortSignal.timeout(10000),
+})
+    .then(async r => r.ok ? mp4Dimensions(Buffer.from(await r.arrayBuffer())) : undefined)
+    .catch(() => {});
+
 export default async function({ id, quality }) {
     // numeric ids belong to the old url format, both redirect to the canonical page
     const path = /^\d+$/.test(id) ? `video${id}` : `video.${id}`;
@@ -83,7 +109,21 @@ export default async function({ id, quality }) {
         } catch {}
 
         if (variant) {
-            const resolution = `${Math.min(variant.resolution.width, variant.resolution.height)}p`;
+            const shortSide = Math.min(variant.resolution.width, variant.resolution.height);
+            const resolution = `${shortSide}p`;
+
+            // the same quality as a single mp4 file (usually up to 480p) is
+            // simpler to download than hls: no segments, and it can resume
+            if (mp4Url) {
+                const mp4 = await probeMp4(mp4Url);
+                if (mp4 && Math.min(mp4.width, mp4.height) === shortSide) {
+                    return {
+                        urls: mp4Url,
+                        filenameAttributes: filenameAttributes(resolution),
+                        fileMetadata,
+                    }
+                }
+            }
 
             return {
                 urls: new URL(variant.uri, hlsUrl).toString(),
