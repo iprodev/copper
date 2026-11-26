@@ -169,6 +169,7 @@ export const services = {
             "@:user/post/:id",
             "@:user/post/:id/media",
             "t/:id",
+            "share/:shareId",
         ],
     },
     tiktok: {

@@ -67,6 +67,15 @@
         }
     },
     {
+        "name": "share link (from the app's share button)",
+        "url": "https://www.threads.com/share/_lTUR33bT",
+        "params": {},
+        "expected": {
+            "code": 200,
+            "status": "redirect"
+        }
+    },
+    {
         "name": "inexistent post",
         "url": "https://www.threads.com/@instagram/post/XXXXXXXXXXX",
         "params": {},

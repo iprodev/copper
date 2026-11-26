@@ -1,4 +1,5 @@
 import { genericUserAgent } from "../../config.js";
+import { resolveRedirectingURL } from "../url.js";
 import { createStream } from "../../stream/manage.js";
 
 // threads only includes post data in the page when the request
@@ -97,7 +98,21 @@ const makePicker = (items, id, alwaysProxy) => {
     }).filter(Boolean);
 }
 
-export default async function({ id, alwaysProxy, dispatcher }) {
+export default async function threads({ id, shareId, alwaysProxy, dispatcher }) {
+    // links from the app's share button (threads.com/share/<id>) redirect
+    // to the post's link. like instagram, threads answers a browser's
+    // user agent with a page instead of the redirect.
+    if (shareId) {
+        const match = await resolveRedirectingURL(
+            `https://www.threads.com/share/${shareId}`,
+            dispatcher,
+            { "user-agent": "curl/7.88.1" }
+        );
+
+        if (!match?.id) return { error: "fetch.short_link" };
+        return threads({ id: match.id, alwaysProxy, dispatcher });
+    }
+
     const html = await fetch(`https://www.threads.com/t/${id}`, {
         headers: pageHeaders,
         dispatcher,
