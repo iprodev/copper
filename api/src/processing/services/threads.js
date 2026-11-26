@@ -125,14 +125,25 @@ export default async function threads({ id, shareId, alwaysProxy, dispatcher }) 
     const post = findPost(html, id);
     if (!post) return { error: "fetch.empty" };
 
-    const carousel = post.carousel_media?.filter(Boolean);
+    return getMedia(post, id, alwaysProxy)
+        // a text post with a video or photo from instagram attached to it,
+        // like a reel, which threads shows under the text
+        ?? getMedia(post.text_post_app_info?.linked_inline_media, id, alwaysProxy)
+        // text-only posts don't have anything to download
+        ?? { error: "fetch.empty" };
+}
+
+const getMedia = (media, id, alwaysProxy) => {
+    if (!media) return;
+
+    const carousel = media.carousel_media?.filter(Boolean);
     if (carousel?.length) {
         const picker = makePicker(carousel, id, alwaysProxy);
         if (picker.length) return { picker };
     }
 
-    if (post.media_type === MEDIA_TYPE_VIDEO || post.video_versions?.length) {
-        const video = bestVideo(post);
+    if (media.media_type === MEDIA_TYPE_VIDEO || media.video_versions?.length) {
+        const video = bestVideo(media);
         if (video) return {
             urls: video,
             filename: `threads_${id}.mp4`,
@@ -140,15 +151,12 @@ export default async function threads({ id, shareId, alwaysProxy, dispatcher }) 
         }
     }
 
-    if (post.media_type === MEDIA_TYPE_PHOTO) {
-        const image = bestImage(post);
+    if (media.media_type === MEDIA_TYPE_PHOTO) {
+        const image = bestImage(media);
         if (image) return {
             urls: image,
             isPhoto: true,
             filename: `threads_${id}.jpg`,
         }
     }
-
-    // text-only posts don't have anything to download
-    return { error: "fetch.empty" };
 }
