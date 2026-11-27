@@ -3,6 +3,10 @@
 #
 #   sudo ./install.sh          install, or update an existing installation
 #
+# a release's website and docker images are built by github in the minutes
+# after it's published. this waits until they're there, so an update never
+# installs the previous version's images (RELEASE_WAIT=0 doesn't wait).
+#
 # what it does, and what it doesn't:
 # - fetchr runs in docker containers in /opt/fetchr. the api only listens on
 #   127.0.0.1, warp and the youtube session generator aren't reachable at all.
@@ -223,6 +227,96 @@ mkdir -p "$INSTALL_DIR/warp-data" "$INSTALL_DIR/bot-data"
 chown 1000:1000 "$INSTALL_DIR/bot-data"
 ok "settings saved in $INSTALL_DIR"
 
+# ---------------------------------------------------------------- release
+# github builds a release's website and docker images after it's published,
+# which takes a few minutes. updating in between would install the previous
+# version's images, so this waits until everything of the release is there.
+
+# seconds to wait at most, 0 doesn't wait
+RELEASE_WAIT="${RELEASE_WAIT:-1800}"
+RELEASE_VERSION=""
+
+# the version of the latest release (e.g. 1.3.1), nothing if github can't be
+# asked. the website's download link redirects to the latest release's
+# (without github's api and its limits)
+latest_release() {
+    curl -sSI --max-time 20 "https://github.com/$REPO/releases/latest/download/fetchr-web.tar.gz" 2>/dev/null \
+        | tr -d '\r' | grep -i '^location:' | grep -o '/releases/download/v[^/[:space:]]*/' \
+        | sed -E 's#/releases/download/v##; s#/$##' || true
+}
+
+# the digest of an image's tag on ghcr.io, nothing if it isn't there (yet)
+image_digest() {
+    local path="$1" tag="$2" token
+    token="$(curl -fsS --max-time 20 "https://ghcr.io/token?scope=repository:$path:pull" 2>/dev/null \
+        | sed -E 's/.*"token"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || true)"
+    [[ -n "$token" ]] || return 0
+    curl -fsSI --max-time 20 -H "Authorization: Bearer $token" \
+        -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json" \
+        "https://ghcr.io/v2/$path/manifests/$tag" 2>/dev/null \
+        | tr -d '\r' | grep -i '^docker-content-digest:' | awk '{ print $2 }' || true
+}
+
+# what isn't there yet of a release: its website, and the images whose tag
+# in docker-compose.yml (FETCHR_VERSION, 1 by default) doesn't point to it yet
+release_missing() {
+    local version="$1" major="${1%%.*}" image path tag want got missing=()
+
+    if [[ -z "${WEB_ARCHIVE:-}" ]] && ! curl -fsIL --max-time 20 -o /dev/null \
+            "https://github.com/$REPO/releases/download/v$version/fetchr-web.tar.gz" 2>/dev/null; then
+        missing+=("website")
+    fi
+
+    for image in $(cd "$INSTALL_DIR" && docker compose config --images 2>/dev/null | grep "^ghcr.io/${REPO%%/*}/" | sort -u || true); do
+        path="${image#ghcr.io/}"
+        tag="latest"
+        if [[ "$path" == *:* ]]; then
+            tag="${path##*:}"
+            path="${path%:*}"
+        fi
+        # an older version pinned with FETCHR_VERSION isn't waited for
+        [[ "$tag" == "latest" || "$tag" == "$major" || "$tag" == "$version" ]] || continue
+
+        want="$(image_digest "$path" "$version")"
+        got="$(image_digest "$path" "$tag")"
+        [[ -n "$want" && "$want" == "$got" ]] || missing+=("${path##*/}")
+    done
+
+    echo "${missing[*]}"
+}
+
+wait_for_release() {
+    local version missing waited=0
+    [[ "$RELEASE_WAIT" =~ ^[0-9]+$ ]] && (( RELEASE_WAIT > 0 )) || return 0
+
+    version="$(latest_release)"
+    if [[ -z "$version" ]]; then
+        warn "couldn't ask github for the latest release, so this doesn't wait for it"
+        return 0
+    fi
+
+    missing="$(release_missing "$version")"
+    if [[ -n "$missing" ]]; then
+        info "v$version was released moments ago and github is still building it ($missing)."
+        info "waiting until it's done, usually a few minutes..."
+    fi
+
+    while [[ -n "$missing" ]]; do
+        if (( waited >= RELEASE_WAIT )); then
+            die "v$version still isn't ready after $(( (waited + 59) / 60 )) minutes ($missing). check https://github.com/$REPO/actions and run this again when the \"build release\" workflow is done (RELEASE_WAIT=0 ./install.sh doesn't wait)"
+        fi
+        sleep 20
+        waited=$(( waited + 20 ))
+        missing="$(release_missing "$version")"
+        if [[ -n "$missing" ]] && (( waited % 60 == 0 )); then
+            info "still building after $(( waited / 60 )) min: $missing"
+        fi
+    done
+
+    RELEASE_VERSION="$version"
+    ok "v$version is ready"
+}
+
 # ---------------------------------------------------------------- web app
 echo
 bold "3. website files"
@@ -230,10 +324,15 @@ bold "3. website files"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
+wait_for_release
+
 if [[ -n "${WEB_ARCHIVE:-}" ]]; then
     cp "$WEB_ARCHIVE" "$tmp/web.tar.gz"
 else
-    curl -fsSL "https://github.com/$REPO/releases/latest/download/fetchr-web.tar.gz" -o "$tmp/web.tar.gz" \
+    # the website of the release the images are from
+    web_url="https://github.com/$REPO/releases/latest/download/fetchr-web.tar.gz"
+    [[ -n "$RELEASE_VERSION" ]] && web_url="https://github.com/$REPO/releases/download/v$RELEASE_VERSION/fetchr-web.tar.gz"
+    curl -fsSL "$web_url" -o "$tmp/web.tar.gz" \
         || die "couldn't download the website from the latest github release of $REPO. is there a release yet?"
 fi
 
@@ -348,6 +447,19 @@ for _ in $(seq 1 30); do
     sleep 2
 done
 grep -q '"fetchr"' "$tmp/info" 2>/dev/null && ok "api answers on 127.0.0.1:$API_PORT" || warn "the api doesn't answer yet, check: docker compose -f $INSTALL_DIR/docker-compose.yml logs api"
+
+# the api runs the version that was just released
+api_version="$(grep -o '"version":"[^"]*"' "$tmp/info" 2>/dev/null | head -n1 | cut -d'"' -f4 || true)"
+pinned="$(env_get FETCHR_VERSION)"
+if [[ -n "$pinned" && "$pinned" != "latest" && "$pinned" != "${RELEASE_VERSION%%.*}" ]]; then
+    # an older version pinned in .env
+    api_version=""
+fi
+if [[ -n "$api_version" && -n "$RELEASE_VERSION" ]]; then
+    [[ "$api_version" == "$RELEASE_VERSION" ]] \
+        && ok "the api runs v$api_version, the latest release" \
+        || warn "the api runs v$api_version, but the latest release is v$RELEASE_VERSION. run this again in a few minutes"
+fi
 
 info "checking warp..."
 warp_status=""
