@@ -24,8 +24,11 @@ export const DIRECT = "direct";
 
 const serviceContext = new AsyncLocalStorage();
 
-// tunnels of a service use its proxy too (e.g. "youtube-subtitles" -> "youtube")
-const baseService = (service) => String(service ?? "").replace(/-(subtitles|cover)$/, "");
+// tunnels of a service use its proxy too (e.g. "youtube-subtitles" -> "youtube"),
+// also files yt-dlp found for a service's link ("generic-youtube" -> "youtube")
+const baseService = (service) => String(service ?? "")
+    .replace(/-(subtitles|cover)$/, "")
+    .replace(/^generic-(?=.)/, "");
 
 export const withService = (service, fn) =>
     serviceContext.run({ service: baseService(service) }, fn);

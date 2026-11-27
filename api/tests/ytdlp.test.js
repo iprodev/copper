@@ -4,9 +4,9 @@ import http from "node:http";
 
 import { env } from "../src/config.js";
 import { extract, normalizeURL } from "../src/processing/url.js";
-import match from "../src/processing/match.js";
+import match, { shouldFallback } from "../src/processing/match.js";
 import matchAction from "../src/processing/match-action.js";
-import ytdlp, { kindOf, pickFormats, parseCookies, headersFor } from "../src/processing/services/ytdlp.js";
+import ytdlp, { kindOf, pickFormats, parseCookies, headersFor, tunnelServiceFor } from "../src/processing/services/ytdlp.js";
 
 // formats like yt-dlp gives for a ted talk: direct mp4 without known codecs,
 // and hls video and audio separately
@@ -182,7 +182,7 @@ test("a video from yt-dlp, with its headers", async (t) => {
     });
 
     const r = await ytdlp({ url: "https://ted.example/talks/1", quality: "max" });
-    assert.deepEqual(asked, [{ url: "https://ted.example/talks/1" }]);
+    assert.deepEqual(asked, [{ url: "https://ted.example/talks/1", service: "generic" }]);
 
     assert.deepEqual(r.urls, [`${CDN}/v.m3u8`, `${CDN}/a.m3u8`]);
     assert.equal(r.isHLS, true);
@@ -337,4 +337,109 @@ test("sites yt-dlp doesn't know are an invalid link without the generic extracto
 
     assert.equal(response.body.status, "error");
     assert.equal(response.body.error.code, "error.api.link.invalid");
+});
+
+// a service of fetchr's that fails: threads, with its page missing
+const failingThreads = (t) => {
+    const realFetch = globalThis.fetch;
+    t.after(() => globalThis.fetch = realFetch);
+    globalThis.fetch = async (input, init) => {
+        if (String(input).startsWith("https://www.threads.com/")) return new Response("", { status: 404 });
+        return realFetch(input, init);
+    }
+}
+
+const threadsRequest = (link, extra = {}) => ({
+    host: "threads",
+    patternMatch: { id: "DgLAC88DUx1", user: "someone" },
+    params: { url: new URL(link), videoQuality: "max", downloadMode: "auto", filenameStyle: "basic", ...extra },
+});
+
+test("when a service fails, yt-dlp is asked for the same link", async (t) => {
+    const asked = await fakeYtdlp(t, {
+        ok: true,
+        info: { id: "DgLAC88DUx1", title: "a post", extractor_key: "Threads", type: "video",
+                formats: [{ url: `${CDN}/v.mp4`, protocol: "https", ext: "mp4", height: 720 }] },
+    });
+    failingThreads(t);
+    fakeFiles(t, { [`${CDN}/v.mp4`]: {} });
+
+    const link = "https://www.threads.com/@someone/post/DgLAC88DUx1";
+    const response = await match(threadsRequest(link));
+
+    // the service's name goes along, for its proxy
+    assert.deepEqual(asked, [{ url: link, service: "threads" }]);
+    assert.equal(response.body.status, "tunnel");
+    assert.equal(response.body.filename, "a post (720p).mp4");
+});
+
+test("files of a service's link are tunneled like the service's own", async (t) => {
+    await fakeYtdlp(t, {
+        ok: true,
+        info: { id: "1", type: "video", formats: [{ url: `${CDN}/v.mp4`, protocol: "https", ext: "mp4" }] },
+    });
+    fakeFiles(t, { [`${CDN}/v.mp4`]: {} });
+
+    const r = await ytdlp({ url: "https://www.youtube.com/watch?v=x", service: "youtube" });
+    // untrusted (checked) urls, but through youtube's proxy and in chunks
+    assert.equal(r.tunnelService, "generic-youtube");
+    assert.equal(tunnelServiceFor("generic"), "generic");
+    assert.equal(tunnelServiceFor(undefined), "generic");
+});
+
+test("when yt-dlp can't help either, the service's own error is shown", async (t) => {
+    const asked = await fakeYtdlp(t, { ok: false, error: "content.video.unavailable" });
+    failingThreads(t);
+
+    const response = await match(threadsRequest("https://www.threads.com/@someone/post/DgLAC88DUx1"));
+    assert.equal(asked.length, 1);
+    assert.equal(response.body.error.code, "error.api.fetch.fail");
+    assert.equal(response.body.error.context.service, "threads");
+});
+
+test("yt-dlp isn't asked when it wouldn't help, or when it's turned off", async (t) => {
+    const asked = await fakeYtdlp(t, { ok: false, error: "unsupported" });
+    failingThreads(t);
+
+    // errors yt-dlp would give too (the duration limit is this instance's)
+    for (const error of ["content.too_long", "content.video.live", "content.paid"]) {
+        assert.equal(shouldFallback("youtube", { error }), false, error);
+    }
+    for (const error of ["fetch.fail", "fetch.empty", "fetch.critical", "link.unsupported", "content.video.unavailable"]) {
+        assert.equal(shouldFallback("youtube", { error }), true, error);
+    }
+    // other sites already went to yt-dlp, and working services don't need it
+    assert.equal(shouldFallback("generic", { error: "fetch.fail" }), false);
+    assert.equal(shouldFallback("youtube", { urls: "https://cdn/v.mp4" }), false);
+
+    // YTDLP_FALLBACK=0
+    env.ytdlpFallback = false;
+    t.after(() => env.ytdlpFallback = true);
+    assert.equal(shouldFallback("youtube", { error: "fetch.fail" }), false);
+
+    const response = await match(threadsRequest("https://www.threads.com/@someone/post/DgLAC88DUx1"));
+    assert.equal(response.body.error.code, "error.api.fetch.fail");
+    assert.equal(asked.length, 0);
+});
+
+test("links of a service that fetchr doesn't know go to yt-dlp", async (t) => {
+    const asked = await fakeYtdlp(t, { ok: false, error: "unsupported" });
+
+    const link = "https://www.youtube.com/clip/UgkxSomething";
+    // without yt-dlp: unsupported right away
+    const previous = env.ytdlpURL;
+    env.ytdlpURL = undefined;
+    assert.equal(extract(normalizeURL(link)).error, "link.unsupported");
+    env.ytdlpURL = previous;
+
+    const parsed = extract(normalizeURL(link));
+    assert.deepEqual(parsed, { host: "youtube", patternMatch: null });
+
+    const response = await match({
+        ...parsed,
+        params: { url: normalizeURL(link), videoQuality: "max", downloadMode: "auto", filenameStyle: "basic" },
+    });
+    assert.deepEqual(asked, [{ url: normalizeURL(link).toString(), service: "youtube" }]);
+    assert.equal(response.body.error.code, "error.api.link.unsupported");
+    assert.equal(response.body.error.context.service, "youtube");
 });

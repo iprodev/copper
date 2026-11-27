@@ -208,6 +208,9 @@ export function normalizeURL(url) {
     );
 }
 
+// yt-dlp stands in for a service that fails, see processing/match.js
+const ytdlpFallback = () => !!(env.ytdlpURL && env.ytdlpFallback);
+
 // links from other sites go to yt-dlp and/or the generic extractor.
 // api keys with a list of allowed services need "generic" in it
 const genericAllowed = (enabledServices) => (env.genericExtractor || env.ytdlpURL) && (
@@ -246,6 +249,12 @@ export function extract(url, enabledServices = env.enabledServices) {
     }
 
     if (!patternMatch) {
+        // links of a service that fetchr doesn't know (e.g. youtube clips)
+        // can still be looked up with yt-dlp
+        if (ytdlpFallback()) {
+            return { host, patternMatch: null };
+        }
+
         return {
             error: "link.unsupported",
             context: {

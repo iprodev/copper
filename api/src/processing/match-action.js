@@ -33,7 +33,8 @@ export default function({
         defaultParams = {
             url: r.urls,
             headers: r.headers,
-            service: host,
+            // files found by yt-dlp have their own (see services/ytdlp.js)
+            service: r.tunnelService ?? host,
             filename: r.filenameAttributes ?
                     createFilename(r.filenameAttributes, filenameStyle, isAudioOnly, isAudioMuted) : r.filename,
             fileMetadata: !disableMetadata ? r.fileMetadata : false,

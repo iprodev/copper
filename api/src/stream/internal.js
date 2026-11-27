@@ -9,6 +9,17 @@ const CHUNK_SIZE = BigInt(8e6); // 8 MB
 const min = (a, b) => a < b ? a : b;
 
 const serviceNeedsChunks = new Set(["youtube", "vk"]);
+
+// files yt-dlp found for a service's link ("generic-youtube") are read
+// like the service's own files
+const needsChunks = (service) => serviceNeedsChunks.has(String(service).replace(/^generic-/, ""));
+
+// headers of a chunk request: untrusted (generic) tunnels have their own,
+// from yt-dlp, and never follow redirects (their urls were checked)
+const chunkHeaders = (streamInfo) => ({
+    ...getHeaders(streamInfo.service),
+    ...(isGenericService(streamInfo.service) ? Object.fromEntries(streamInfo.baseHeaders ?? []) : {}),
+});
 const hlsSkippedHeaders = new Set(["content-length", "content-range", "accept-ranges", "content-encoding"]);
 
 // the tunnel consumer (ffmpeg) must never follow redirects on its own
@@ -25,12 +36,12 @@ async function* readChunks(streamInfo, size, start, signal, stop) {
 
         const chunk = await request(streamInfo.url, {
             headers: {
-                ...getHeaders(streamInfo.service),
+                ...chunkHeaders(streamInfo),
                 Range: `bytes=${read}-${read + CHUNK_SIZE}`
             },
             dispatcher: streamInfo.dispatcher,
             signal,
-            maxRedirections: 4
+            maxRedirections: isGenericService(streamInfo.service) ? 0 : 4
         });
 
         if (chunk.statusCode === 403 && chunksSinceTransplant >= 3 && streamInfo.transplant) {
@@ -74,10 +85,11 @@ async function handleChunkedStream(streamInfo, res) {
         let req, attempts = 3;
         while (attempts--) {
             req = await fetch(streamInfo.url, {
-                headers: getHeaders(streamInfo.service),
+                headers: chunkHeaders(streamInfo),
                 method: 'HEAD',
                 dispatcher: streamInfo.dispatcher,
-                signal
+                signal,
+                redirect: isGenericService(streamInfo.service) ? 'manual' : 'follow',
             });
 
             streamInfo.url = req.url;
@@ -206,7 +218,7 @@ export async function internalStream(streamInfo, res) {
         }
     }
 
-    if (serviceNeedsChunks.has(streamInfo.service) && !streamInfo.isHLS) {
+    if (needsChunks(streamInfo.service) && !streamInfo.isHLS) {
         return handleChunkedStream(streamInfo, res);
     }
 

@@ -38,6 +38,16 @@ import ytdlp from "./services/ytdlp.js";
 
 let freebind;
 
+// errors yt-dlp wouldn't do better with
+const noFallback = new Set(["content.too_long", "content.video.live", "content.paid"]);
+
+export const shouldFallback = (host, r) => !!(
+    env.ytdlpURL && env.ytdlpFallback
+    && host !== "generic"
+    && r?.error
+    && !noFallback.has(r.error)
+);
+
 export default async function({ host, patternMatch, params, authType }) {
     const { url } = params;
     assert(url instanceof URL);
@@ -62,13 +72,9 @@ export default async function({ host, patternMatch, params, authType }) {
                 code: "error.api.service.unsupported"
             });
         }
-        if (host !== "generic" && !(testers[host](patternMatch))) {
-            return createResponse("error", {
-                code: "error.api.link.unsupported",
-                context: {
-                    service: friendlyServiceName(host),
-                }
-            });
+        // a link of the service that fetchr doesn't know: yt-dlp may (below)
+        if (host !== "generic" && (!patternMatch || !testers[host](patternMatch))) {
+            r = { error: "link.unsupported" };
         }
 
         // youtubeHLS will be fully removed in the future
@@ -82,239 +88,262 @@ export default async function({ host, patternMatch, params, authType }) {
         const subtitleLang =
             params.subtitleLang !== "none" ? params.subtitleLang : undefined;
 
-        switch (host) {
-            case "twitter":
-                r = await twitter({
-                    id: patternMatch.id,
-                    index: patternMatch.index - 1,
-                    toGif: !!params.convertGif,
-                    alwaysProxy: params.alwaysProxy,
-                    dispatcher,
-                    subtitleLang
-                });
-                break;
+        if (!r) {
+            try {
+                switch (host) {
+                    case "twitter":
+                        r = await twitter({
+                            id: patternMatch.id,
+                            index: patternMatch.index - 1,
+                            toGif: !!params.convertGif,
+                            alwaysProxy: params.alwaysProxy,
+                            dispatcher,
+                            subtitleLang
+                        });
+                        break;
 
-            case "vk":
-                r = await vk({
-                    ownerId: patternMatch.ownerId,
-                    videoId: patternMatch.videoId,
-                    accessKey: patternMatch.accessKey,
-                    quality: params.videoQuality,
-                    subtitleLang,
-                });
-                break;
+                    case "vk":
+                        r = await vk({
+                            ownerId: patternMatch.ownerId,
+                            videoId: patternMatch.videoId,
+                            accessKey: patternMatch.accessKey,
+                            quality: params.videoQuality,
+                            subtitleLang,
+                        });
+                        break;
 
-            case "ok":
-                r = await ok({
-                    id: patternMatch.id,
-                    quality: params.videoQuality
-                });
-                break;
+                    case "ok":
+                        r = await ok({
+                            id: patternMatch.id,
+                            quality: params.videoQuality
+                        });
+                        break;
 
-            case "bilibili":
-                r = await bilibili(patternMatch);
-                break;
+                    case "bilibili":
+                        r = await bilibili(patternMatch);
+                        break;
 
-            case "youtube":
-                let fetchInfo = {
-                    dispatcher,
-                    id: patternMatch.id.slice(0, 11),
-                    quality: params.videoQuality,
-                    codec: params.youtubeVideoCodec,
-                    container: params.youtubeVideoContainer,
-                    isAudioOnly,
-                    isAudioMuted,
-                    dubLang: params.youtubeDubLang,
-                    youtubeHLS,
-                    subtitleLang,
+                    case "youtube":
+                        let fetchInfo = {
+                            dispatcher,
+                            id: patternMatch.id.slice(0, 11),
+                            quality: params.videoQuality,
+                            codec: params.youtubeVideoCodec,
+                            container: params.youtubeVideoContainer,
+                            isAudioOnly,
+                            isAudioMuted,
+                            dubLang: params.youtubeDubLang,
+                            youtubeHLS,
+                            subtitleLang,
+                        }
+
+                        if (url.hostname === "music.youtube.com" || isAudioOnly) {
+                            fetchInfo.quality = "1080";
+                            fetchInfo.codec = "vp9";
+                            fetchInfo.isAudioOnly = true;
+                            fetchInfo.isAudioMuted = false;
+
+                            if (env.ytAllowBetterAudio && params.youtubeBetterAudio) {
+                                fetchInfo.quality = "max";
+                            }
+                        }
+
+                        r = await youtube(fetchInfo);
+                        break;
+
+                    case "reddit":
+                        r = await reddit({
+                            ...patternMatch,
+                            dispatcher,
+                        });
+                        break;
+
+                    case "tiktok":
+                        r = await tiktok({
+                            postId: patternMatch.postId,
+                            shortLink: patternMatch.shortLink,
+                            fullAudio: params.tiktokFullAudio,
+                            isAudioOnly,
+                            h265: params.allowH265,
+                            alwaysProxy: params.alwaysProxy,
+                            subtitleLang,
+                        });
+                        break;
+
+                    case "tumblr":
+                        r = await tumblr({
+                            id: patternMatch.id,
+                            user: patternMatch.user,
+                            url
+                        });
+                        break;
+
+                    case "vimeo":
+                        r = await vimeo({
+                            id: patternMatch.id.slice(0, 11),
+                            password: patternMatch.password,
+                            quality: params.videoQuality,
+                            isAudioOnly,
+                            subtitleLang,
+                        });
+                        break;
+
+                    case "soundcloud":
+                        isAudioOnly = true;
+                        isAudioMuted = false;
+                        r = await soundcloud({
+                            ...patternMatch,
+                            format: params.audioFormat,
+                        });
+                        break;
+
+                    case "instagram":
+                        r = await instagram({
+                            ...patternMatch,
+                            quality: params.videoQuality,
+                            alwaysProxy: params.alwaysProxy,
+                            dispatcher
+                        })
+                        break;
+
+                    case "pinterest":
+                        r = await pinterest({
+                            id: patternMatch.id,
+                            shortLink: patternMatch.shortLink || false
+                        });
+                        break;
+
+                    case "streamable":
+                        r = await streamable({
+                            id: patternMatch.id,
+                            quality: params.videoQuality,
+                            isAudioOnly,
+                        });
+                        break;
+
+                    case "twitch":
+                        r = await twitch({
+                            clipId: patternMatch.clip || false,
+                            quality: params.videoQuality,
+                            isAudioOnly,
+                        });
+                        break;
+
+                    case "rutube":
+                        r = await rutube({
+                            id: patternMatch.id,
+                            yappyId: patternMatch.yappyId,
+                            key: patternMatch.key,
+                            quality: params.videoQuality,
+                            isAudioOnly,
+                            subtitleLang,
+                        });
+                        break;
+
+                    case "dailymotion":
+                        r = await dailymotion(patternMatch);
+                        break;
+
+                    case "snapchat":
+                        r = await snapchat({
+                            ...patternMatch,
+                            alwaysProxy: params.alwaysProxy,
+                        });
+                        break;
+
+                    case "loom":
+                        r = await loom({
+                            id: patternMatch.id,
+                            subtitleLang,
+                        });
+                        break;
+
+                    case "facebook":
+                        r = await facebook({
+                            ...patternMatch,
+                            dispatcher
+                        });
+                        break;
+
+                    case "bsky":
+                        r = await bluesky({
+                            ...patternMatch,
+                            alwaysProxy: params.alwaysProxy,
+                            dispatcher
+                        });
+                        break;
+
+                    case "generic":
+                        // sites yt-dlp knows go to yt-dlp, the rest (and everything,
+                        // without it) to the generic extractor
+                        if (env.ytdlpURL) {
+                            r = await ytdlp({
+                                url: patternMatch.url,
+                                quality: params.videoQuality,
+                                isAudioOnly,
+                            });
+                        }
+
+                        if (!r || r.unsupported) {
+                            if (env.genericExtractor) {
+                                r = await generic({ url: patternMatch.url, quality: params.videoQuality });
+                            } else {
+                                // the link may well be from a site yt-dlp knows
+                                r = { error: r?.unreachable ? "fetch.fail" : "link.invalid" };
+                            }
+                        }
+                        break;
+
+                    case "pornhub":
+                    case "xvideos":
+                    case "beeg":
+                        r = await ({ pornhub, xvideos, beeg })[host]({
+                            id: patternMatch.id,
+                            quality: params.videoQuality,
+                        });
+                        break;
+
+                    case "threads":
+                        r = await threads({
+                            id: patternMatch.id,
+                            shareId: patternMatch.shareId,
+                            alwaysProxy: params.alwaysProxy,
+                            dispatcher,
+                        });
+                        break;
+
+                    case "newgrounds":
+                        r = await newgrounds({
+                            ...patternMatch,
+                            quality: params.videoQuality,
+                        });
+                        break;
+
+                    default:
+                        return createResponse("error", {
+                            code: "error.api.service.unsupported"
+                        });
                 }
+            } catch {
+                r = { error: "fetch.critical" };
+            }
+        }
 
-                if (url.hostname === "music.youtube.com" || isAudioOnly) {
-                    fetchInfo.quality = "1080";
-                    fetchInfo.codec = "vp9";
-                    fetchInfo.isAudioOnly = true;
-                    fetchInfo.isAudioMuted = false;
+        // the service failed: yt-dlp is asked too, with the service's proxy.
+        // when it can't help either, the service's own error is shown
+        let actionHost = host;
+        if (shouldFallback(host, r)) {
+            const fallback = await ytdlp({
+                url: url.toString(),
+                quality: params.videoQuality,
+                isAudioOnly,
+                service: host,
+            }).catch(() => {});
 
-                    if (env.ytAllowBetterAudio && params.youtubeBetterAudio) {
-                        fetchInfo.quality = "max";
-                    }
-                }
-
-                r = await youtube(fetchInfo);
-                break;
-
-            case "reddit":
-                r = await reddit({
-                    ...patternMatch,
-                    dispatcher,
-                });
-                break;
-
-            case "tiktok":
-                r = await tiktok({
-                    postId: patternMatch.postId,
-                    shortLink: patternMatch.shortLink,
-                    fullAudio: params.tiktokFullAudio,
-                    isAudioOnly,
-                    h265: params.allowH265,
-                    alwaysProxy: params.alwaysProxy,
-                    subtitleLang,
-                });
-                break;
-
-            case "tumblr":
-                r = await tumblr({
-                    id: patternMatch.id,
-                    user: patternMatch.user,
-                    url
-                });
-                break;
-
-            case "vimeo":
-                r = await vimeo({
-                    id: patternMatch.id.slice(0, 11),
-                    password: patternMatch.password,
-                    quality: params.videoQuality,
-                    isAudioOnly,
-                    subtitleLang,
-                });
-                break;
-
-            case "soundcloud":
-                isAudioOnly = true;
-                isAudioMuted = false;
-                r = await soundcloud({
-                    ...patternMatch,
-                    format: params.audioFormat,
-                });
-                break;
-
-            case "instagram":
-                r = await instagram({
-                    ...patternMatch,
-                    quality: params.videoQuality,
-                    alwaysProxy: params.alwaysProxy,
-                    dispatcher
-                })
-                break;
-
-            case "pinterest":
-                r = await pinterest({
-                    id: patternMatch.id,
-                    shortLink: patternMatch.shortLink || false
-                });
-                break;
-
-            case "streamable":
-                r = await streamable({
-                    id: patternMatch.id,
-                    quality: params.videoQuality,
-                    isAudioOnly,
-                });
-                break;
-
-            case "twitch":
-                r = await twitch({
-                    clipId: patternMatch.clip || false,
-                    quality: params.videoQuality,
-                    isAudioOnly,
-                });
-                break;
-
-            case "rutube":
-                r = await rutube({
-                    id: patternMatch.id,
-                    yappyId: patternMatch.yappyId,
-                    key: patternMatch.key,
-                    quality: params.videoQuality,
-                    isAudioOnly,
-                    subtitleLang,
-                });
-                break;
-
-            case "dailymotion":
-                r = await dailymotion(patternMatch);
-                break;
-
-            case "snapchat":
-                r = await snapchat({
-                    ...patternMatch,
-                    alwaysProxy: params.alwaysProxy,
-                });
-                break;
-
-            case "loom":
-                r = await loom({
-                    id: patternMatch.id,
-                    subtitleLang,
-                });
-                break;
-
-            case "facebook":
-                r = await facebook({
-                    ...patternMatch,
-                    dispatcher
-                });
-                break;
-
-            case "bsky":
-                r = await bluesky({
-                    ...patternMatch,
-                    alwaysProxy: params.alwaysProxy,
-                    dispatcher
-                });
-                break;
-
-            case "generic":
-                // sites yt-dlp knows go to yt-dlp, the rest (and everything,
-                // without it) to the generic extractor
-                if (env.ytdlpURL) {
-                    r = await ytdlp({
-                        url: patternMatch.url,
-                        quality: params.videoQuality,
-                        isAudioOnly,
-                    });
-                }
-
-                if (!r || r.unsupported) {
-                    if (env.genericExtractor) {
-                        r = await generic({ url: patternMatch.url, quality: params.videoQuality });
-                    } else {
-                        // the link may well be from a site yt-dlp knows
-                        r = { error: r?.unreachable ? "fetch.fail" : "link.invalid" };
-                    }
-                }
-                break;
-
-            case "pornhub":
-            case "xvideos":
-            case "beeg":
-                r = await ({ pornhub, xvideos, beeg })[host]({
-                    id: patternMatch.id,
-                    quality: params.videoQuality,
-                });
-                break;
-
-            case "threads":
-                r = await threads({
-                    id: patternMatch.id,
-                    shareId: patternMatch.shareId,
-                    alwaysProxy: params.alwaysProxy,
-                    dispatcher,
-                });
-                break;
-
-            case "newgrounds":
-                r = await newgrounds({
-                    ...patternMatch,
-                    quality: params.videoQuality,
-                });
-                break;
-
-            default:
-                return createResponse("error", {
-                    code: "error.api.service.unsupported"
-                });
+            if (fallback && !fallback.error && !fallback.unsupported) {
+                r = fallback;
+                actionHost = "generic";
+            }
         }
 
         if (r.isAudioOnly) {
@@ -365,7 +394,7 @@ export default async function({ host, patternMatch, params, authType }) {
 
         return matchAction({
             r,
-            host,
+            host: actionHost,
             audioFormat: params.audioFormat,
             isAudioOnly,
             isAudioMuted,

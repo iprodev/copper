@@ -1,7 +1,10 @@
-// links from sites fetchr doesn't support itself, looked up with yt-dlp.
+// links looked up with yt-dlp: from sites fetchr doesn't support itself, and
+// links of fetchr's services when the service itself fails (YTDLP_FALLBACK).
 // yt-dlp runs in its own container (see /ytdlp and YTDLP_URL) and only says
 // where a link's files are; they're downloaded through fetchr's own tunnels,
 // as untrusted ("generic") urls: every address is checked, redirects too.
+// files of a service's link go the way the service's requests go (e.g.
+// through warp for youtube), since files may only work for that address.
 
 import { Agent, request } from "undici";
 
@@ -33,11 +36,12 @@ const KEPT_AUDIO = new Set(["mp3", "m4a", "opus", "ogg", "wav"]);
 // headers of yt-dlp's that are sent along with the file requests
 const PASSED_HEADERS = new Set(["user-agent", "referer", "origin", "accept-language"]);
 
-export const askYtdlp = async (url) => {
+// the service tells the container which proxy to use (the same as SERVICE_PROXIES)
+export const askYtdlp = async (url, service = "generic") => {
     const response = await request(new URL("extract", env.ytdlpURL), {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, service }),
         dispatcher: agent,
         signal: AbortSignal.timeout(LOOKUP_TIMEOUT),
     });
@@ -203,7 +207,7 @@ export const headersFor = (format, url) => {
 
 // follows a file's redirects (checking every address) and makes sure it's
 // there, since tunnels of untrusted links don't follow redirects themselves
-const checkFile = async (format) => {
+const checkFile = async (format, service) => {
     let url = format.url;
 
     for (let i = 0; i <= MAX_REDIRECTS; i++) {
@@ -215,7 +219,7 @@ const checkFile = async (format) => {
                 ...(isHLS(format) ? {} : { range: "bytes=0-0" }),
             },
             redirect: "manual",
-            dispatcher: getSafeDispatcher(),
+            dispatcher: getSafeDispatcher(service),
             signal: AbortSignal.timeout(CHECK_TIMEOUT),
         });
 
@@ -276,7 +280,7 @@ const audioExtension = (format) => {
 }
 
 // one entry (a video, a song or a picture) -> a result for match-action
-const fromEntry = async (info, { quality, isAudioOnly }) => {
+const fromEntry = async (info, { quality, isAudioOnly, service }) => {
     if (info.is_live || info.live_status === "is_live" || info.live_status === "is_upcoming") {
         return { error: "content.video.live" };
     }
@@ -288,7 +292,7 @@ const fromEntry = async (info, { quality, isAudioOnly }) => {
     const picked = pickFormats(info.formats, { quality, isAudioOnly });
 
     if (picked.image) {
-        const file = await checkFile(picked.image);
+        const file = await checkFile(picked.image, service);
         if (!file) return { error: "fetch.fail" };
 
         const ext = String(picked.image.ext || "jpg").toLowerCase();
@@ -296,6 +300,7 @@ const fromEntry = async (info, { quality, isAudioOnly }) => {
             urls: file.url,
             headers: file.headers,
             isPhoto: true,
+            tunnelService: service,
             filenameAttributes: filenameAttributes(info, undefined, ext),
         }
     }
@@ -303,7 +308,7 @@ const fromEntry = async (info, { quality, isAudioOnly }) => {
     const files = [picked.video, picked.audio].filter(Boolean);
     if (!files.length) return { error: "fetch.empty" };
 
-    const checked = await Promise.all(files.map(f => checkFile(f).catch(() => {})));
+    const checked = await Promise.all(files.map(f => checkFile(f, service).catch(() => {})));
     if (checked.some(f => !f)) return { error: "fetch.fail" };
 
     const base = {
@@ -315,6 +320,7 @@ const fromEntry = async (info, { quality, isAudioOnly }) => {
         // files are always downloaded through a tunnel: they may need the
         // headers above, or only work for the address that looked them up
         proxy: true,
+        tunnelService: service,
     };
 
     if (picked.video && picked.audio) {
@@ -345,7 +351,7 @@ const fromPlaylist = async (info, options) => {
         const format = picked.image ?? (!picked.audio && picked.video && !isHLS(picked.video) ? picked.video : undefined);
         if (!format) return;
 
-        const file = await checkFile(format).catch(() => {});
+        const file = await checkFile(format, options.service).catch(() => {});
         if (!file) return;
 
         const type = picked.image ? "photo" : "video";
@@ -354,7 +360,7 @@ const fromPlaylist = async (info, options) => {
         return {
             type,
             url: createStream({
-                service: "generic",
+                service: options.service,
                 type: "proxy",
                 url: file.url,
                 headers: file.headers,
@@ -377,12 +383,18 @@ const ERRORS = new Set([
     "fetch.rate", "fetch.empty", "fetch.fail",
 ]);
 
+// tunnels of files yt-dlp found: "generic" for other sites, "generic-<service>"
+// for a service's links (untrusted, but with the service's proxy)
+export const tunnelServiceFor = (service) =>
+    !service || service === "generic" ? "generic" : `generic-${service}`;
+
 // { unsupported: true } when yt-dlp doesn't know the site (or can't be
-// reached: then also unreachable), so the link is left to the generic extractor
-export default async function ytdlp({ url, quality, isAudioOnly }) {
+// reached: then also unreachable), so the link is left to the generic extractor.
+// service: the fetchr service of the link, when yt-dlp stands in for it
+export default async function ytdlp({ url, quality, isAudioOnly, service = "generic" }) {
     let answer;
     try {
-        answer = await askYtdlp(url);
+        answer = await askYtdlp(url, service);
     } catch {
         return { unsupported: true, unreachable: true };
     }
@@ -401,7 +413,7 @@ export default async function ytdlp({ url, quality, isAudioOnly }) {
     }
 
     const info = answer.info ?? {};
-    const options = { quality, isAudioOnly };
+    const options = { quality, isAudioOnly, service: tunnelServiceFor(service) };
 
     try {
         if (info.type === "playlist") {
