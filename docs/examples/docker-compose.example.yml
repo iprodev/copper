@@ -33,6 +33,10 @@ services:
             # read docs/api-env-variables.md#enable_generic_extractor first
             # ENABLE_GENERIC_EXTRACTOR: "1"
 
+            # uncomment (with the ytdlp service below) to look up links from
+            # ~1800 other sites with yt-dlp, read docs/api-env-variables.md#ytdlp_url
+            # YTDLP_URL: "http://ytdlp:4417/"
+
             # uncomment to send requests of some services through a proxy
             # (http, https, socks4 or socks5), read docs/api-env-variables.md#service_proxies
             # SERVICE_PROXIES: "youtube=socks5://user:password@10.0.0.3:1080"
@@ -62,5 +66,17 @@ services:
     #     init: true
     #     restart: unless-stopped
     #     container_name: youtube-pot
+    #     labels:
+    #       - com.centurylinklabs.watchtower.scope=fetchr
+
+    # if needed, use this image for links from other sites (with YTDLP_URL in
+    # the api's environment). don't publish its port, only the api should reach
+    # it. it updates yt-dlp by itself, see docs/api-env-variables.md#ytdlp_url
+    # ytdlp:
+    #     image: ghcr.io/iprodev/fetchr-ytdlp:latest
+    #     init: true
+    #     restart: unless-stopped
+    #     container_name: ytdlp
+    #     mem_limit: 768m
     #     labels:
     #       - com.centurylinklabs.watchtower.scope=fetchr

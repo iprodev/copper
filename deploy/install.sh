@@ -358,6 +358,17 @@ for _ in $(seq 1 15); do
 done
 [[ "$warp_status" == "warp=on" || "$warp_status" == "warp=plus" ]] && ok "warp is connected ($warp_status)" || warn "warp isn't connected yet ($warp_status), check: docker compose -f $INSTALL_DIR/docker-compose.yml logs warp"
 
+# yt-dlp (for sites fetchr doesn't support itself), unless it's turned off in .env
+if docker compose config --services 2>/dev/null | grep -qx ytdlp; then
+    ytdlp_version=""
+    for _ in $(seq 1 15); do
+        ytdlp_version="$(docker compose exec -T ytdlp python -c "import json, urllib.request; print(json.load(urllib.request.urlopen('http://127.0.0.1:4417/health', timeout=5))['version'])" 2>/dev/null || true)"
+        [[ -n "$ytdlp_version" ]] && break
+        sleep 2
+    done
+    [[ -n "$ytdlp_version" ]] && ok "yt-dlp $ytdlp_version answers" || warn "yt-dlp doesn't answer yet, check: docker compose -f $INSTALL_DIR/docker-compose.yml logs ytdlp"
+fi
+
 # ---------------------------------------------------------------- monitor
 echo
 bold "6. monitoring"
