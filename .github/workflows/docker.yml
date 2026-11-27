@@ -18,11 +18,14 @@ jobs:
     strategy:
       matrix:
         include:
-          # api: ghcr.io/<owner>/fetchr, telegram bot: ghcr.io/<owner>/fetchr-bot
+          # api: ghcr.io/<owner>/fetchr, telegram bot: ghcr.io/<owner>/fetchr-bot,
+          # yt-dlp for other sites: ghcr.io/<owner>/fetchr-ytdlp
           - target: api
             image: ${{ github.repository }}
           - target: bot
             image: ${{ github.repository }}-bot
+          - target: ytdlp
+            image: ${{ github.repository }}-ytdlp
     permissions:
       contents: read
       packages: write

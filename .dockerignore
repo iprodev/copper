@@ -19,3 +19,7 @@ docker-compose.yml
 
 # ide
 .vscode
+
+# python
+__pycache__
+*.pyc
