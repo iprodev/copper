@@ -17,6 +17,7 @@ import {
     buildGlobalDispatcher,
     hasProxyFor,
 } from "../src/misc/proxy.js";
+import { getSafeDispatcher } from "../src/security/network.js";
 
 // the tests decide which proxies are used, not the machine they run on
 for (const key of ["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy"]) {
@@ -266,14 +267,32 @@ test("each service uses its own proxy", async () => {
         assert.equal(await withService("youtube-subtitles", () => get(url + "sub", dispatcher)), "hello from /sub");
         assert.equal(seen(), before + 2);
 
+        // files yt-dlp found for a youtube link go the same way (to another
+        // address than above, so it's a new connection through the proxy)
+        const proxied = socks.destinations.length;
+        assert.equal(
+            await withService("generic-youtube", () => get(`http://localhost:${targetPort}/ytdlp`, dispatcher)),
+            "hello from /ytdlp"
+        );
+        assert.equal(socks.destinations.length, proxied + 1);
+
         // no proxy of its own and no general proxy: direct
         assert.equal(await withService("tiktok", () => get(url + "tt", dispatcher)), "hello from /tt");
         assert.equal(await withService("vimeo", () => get(url + "vm", dispatcher)), "hello from /vm");
         assert.equal(await get(url + "none", dispatcher), "hello from /none");
-        assert.equal(seen(), before + 2);
+        assert.equal(socks.destinations.length, proxied + 1);
 
         assert.equal(hasProxyFor("youtube"), true);
         assert.equal(hasProxyFor("youtube-subtitles"), true);
+        assert.equal(hasProxyFor("generic-youtube"), true);
+        assert.equal(hasProxyFor("generic-tiktok"), false);
+        assert.equal(hasProxyFor("generic"), false);
+
+        // untrusted files are checked at connection time, unless they go
+        // through a proxy (which then resolves hostnames)
+        assert.equal(getSafeDispatcher("generic-youtube"), undefined);
+        assert.ok(getSafeDispatcher("generic-tiktok"));
+        assert.ok(getSafeDispatcher());
         assert.equal(hasProxyFor("vimeo"), false);
         assert.equal(hasProxyFor("tiktok"), false);
     } finally {

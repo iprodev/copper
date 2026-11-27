@@ -88,8 +88,9 @@ export const assertSafeURL = async (input, { resolve = lookupAll } = {}) => {
 // when the server talks to the internet directly, addresses are also checked
 // at connection time. this covers dns rebinding between the check above and
 // the actual request. behind an http proxy, the proxy resolves hostnames,
-// so only the checks above apply.
-const usesProxy = () => hasProxyFor("generic");
+// so only the checks above apply. untrusted files of a service's link (from
+// yt-dlp, "generic-<service>") go the way the service's requests go.
+const usesProxy = (service = "generic") => hasProxyFor(service);
 
 const guardedLookup = (hostname, options, callback) => {
     dns.lookup(hostname, { ...options, all: true, verbatim: true }, (err, addresses) => {
@@ -106,8 +107,9 @@ const guardedLookup = (hostname, options, callback) => {
 }
 
 let guardedAgent;
-export const getSafeDispatcher = () => {
-    if (usesProxy()) return;
+export const getSafeDispatcher = (service = "generic") => {
+    // the global dispatcher picks the service's proxy
+    if (usesProxy(service)) return;
 
     guardedAgent ??= new Agent({
         connect: { lookup: guardedLookup },

@@ -1,4 +1,4 @@
-# fetchr: api, youtube po token provider, cloudflare warp and the telegram bot.
+# fetchr: api, yt-dlp, youtube po token provider, cloudflare warp and the telegram bot.
 # settings live in .env (made by install.sh, see .env.example).
 # nothing here is reachable from the internet directly: the api only listens
 # on 127.0.0.1 and nginx on the host forwards api.<domain> to it.
@@ -32,12 +32,53 @@ services:
             TUNNEL_RATELIMIT_MAX: ${TUNNEL_RATELIMIT_MAX:-120}
             RATELIMIT_MAX: ${RATELIMIT_MAX:-20}
             DURATION_LIMIT: ${DURATION_LIMIT:-10800}
+            # links from sites fetchr doesn't support itself are looked up
+            # with yt-dlp (the ytdlp service). YTDLP_URL= in .env turns it off
+            YTDLP_URL: ${YTDLP_URL-http://ytdlp:4417/}
+            # yt-dlp is also tried when one of fetchr's services fails
+            YTDLP_FALLBACK: ${YTDLP_FALLBACK:-1}
+            # pages of sites yt-dlp doesn't know are searched for media too.
+            # every address is checked (docs/api-env-variables.md)
+            ENABLE_GENERIC_EXTRACTOR: ${ENABLE_GENERIC_EXTRACTOR:-1}
         volumes:
             - ./keys.json:/keys.json:ro
             - ./cookies:/cookies
+        networks:
+            - default
+            - ytdlp
         depends_on:
             - warp
             - youtube-pot
+            - ytdlp
+
+    # yt-dlp: finds the files of links from ~1800 sites fetchr doesn't support
+    # itself, and of fetchr's services' links when the service fails. it doesn't
+    # download anything, the api does (through its tunnels).
+    # links come from anyone, so it's on its own network (it can only reach
+    # warp, not the other containers) and refuses every address that isn't
+    # public, but its proxy. it updates yt-dlp by itself once a day.
+    # links of a service go the way the api's requests of that service go
+    # (SERVICE_PROXIES, e.g. youtube through warp), the rest directly: some
+    # sites only give files to the address that asked for them.
+    # no port is published, only the api uses it.
+    ytdlp:
+        image: ghcr.io/iprodev/fetchr-ytdlp:${FETCHR_VERSION:-1}
+        init: true
+        restart: unless-stopped
+        mem_limit: ${YTDLP_MEMORY:-768m}
+        pids_limit: 200
+        environment:
+            # links looked up at the same time (each takes about 50-100 mb)
+            YTDLP_WORKERS: ${YTDLP_WORKERS:-2}
+            YTDLP_TIMEOUT: ${YTDLP_TIMEOUT:-30}
+            # sites that are never looked up, e.g. bandcamp,imgur
+            YTDLP_DISABLED_EXTRACTORS: ${YTDLP_DISABLED_EXTRACTORS:-}
+            # the same as the api's
+            SERVICE_PROXIES: ${SERVICE_PROXIES:-youtube=socks5://warp:1080}
+        networks:
+            - ytdlp
+        depends_on:
+            - warp
 
     # makes the po token youtube asks for before it sends some videos.
     # tokens are bound to the ip they're made from, so it goes through warp,
@@ -74,6 +115,10 @@ services:
             - net.ipv4.conf.all.src_valid_mark=1
         volumes:
             - ./warp-data:/var/lib/cloudflare-warp
+        # yt-dlp uses it too, for links of services that go through warp
+        networks:
+            - default
+            - ytdlp
 
     # telegram bot, enabled with COMPOSE_PROFILES=bot in .env
     bot:
@@ -112,3 +157,8 @@ services:
 
 volumes:
     telegram-bot-api:
+
+networks:
+    default:
+    # only the api, yt-dlp and warp are on it
+    ytdlp:

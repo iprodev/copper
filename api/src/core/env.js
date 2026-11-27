@@ -132,6 +132,11 @@ export const loadEnvs = (env = process.env) => {
 
         // generic extractor for links from any site, disabled by default
         genericExtractor: env.ENABLE_GENERIC_EXTRACTOR === "1",
+        // yt-dlp container for sites fetchr doesn't support itself (see /ytdlp),
+        // e.g. http://ytdlp:4417/. links it doesn't know go to the generic extractor
+        ytdlpURL: env.YTDLP_URL,
+        // yt-dlp is also tried when one of fetchr's services fails
+        ytdlpFallback: env.YTDLP_FALLBACK !== "0",
 
         // "never" | "key" | "always"
         enableDeprecatedYoutubeHls: env.ENABLE_DEPRECATED_YOUTUBE_HLS ?? "never",

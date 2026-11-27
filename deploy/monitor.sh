@@ -8,9 +8,9 @@
 #   sudo /opt/fetchr/monitor.sh --test-alert  send a test message to the admins
 #
 # checks: the api answers, warp is connected, a youtube video can actually be
-# downloaded, all containers run, and the disk isn't full.
-# fixes: restarts a stuck api or warp, and when youtube fails, registers warp
-# again to get a new ip (at most once an hour).
+# downloaded, yt-dlp answers, all containers run, and the disk isn't full.
+# fixes: restarts a stuck api, warp or yt-dlp, and when youtube fails,
+# registers warp again to get a new ip (at most once an hour).
 
 set -uo pipefail
 
@@ -53,6 +53,9 @@ text() {
             youtube.unfixed) echo "ثبت‌نام دوباره‌ی WARP هم کمکی نکرد. لاگ‌ها را بررسی کنید: docker compose logs api warp youtube-pot" ;;
             containers.fail) echo "🔴 این کانتینرها اجرا نمی‌شوند:" ;;
             containers.ok) echo "🟢 همه‌ی کانتینرها دوباره اجرا می‌شوند." ;;
+            ytdlp.fail) echo "🔴 yt-dlp پاسخ نمی‌دهد. لینک سایت‌هایی که fetchr خودش پشتیبانی نمی‌کند کار نمی‌کند." ;;
+            ytdlp.ok) echo "🟢 yt-dlp دوباره کار می‌کند." ;;
+            ytdlp.fixed) echo "🔧 yt-dlp پاسخ نمی‌داد و دوباره راه‌اندازی شد. الان کار می‌کند." ;;
             disk.fail) echo "🔴 دیسک سرور تقریباً پر است:" ;;
             disk.ok) echo "🟢 فضای دیسک دوباره کافی است." ;;
             test) echo "✅ پیام آزمایشی نظارت fetchr. هشدارها به همین‌جا فرستاده می‌شوند." ;;
@@ -72,6 +75,9 @@ text() {
             youtube.unfixed) echo "registering warp again didn't help. check the logs: docker compose logs api warp youtube-pot" ;;
             containers.fail) echo "🔴 these containers aren't running:" ;;
             containers.ok) echo "🟢 all containers are running again." ;;
+            ytdlp.fail) echo "🔴 yt-dlp doesn't answer. links from sites fetchr doesn't support itself don't work." ;;
+            ytdlp.ok) echo "🟢 yt-dlp works again." ;;
+            ytdlp.fixed) echo "🔧 yt-dlp didn't answer and was restarted. it works now." ;;
             disk.fail) echo "🔴 the server's disk is almost full:" ;;
             disk.ok) echo "🟢 there's enough disk space again." ;;
             test) echo "✅ test message from fetchr's monitor. alerts will be sent here." ;;
@@ -157,6 +163,13 @@ check_containers() {
     [[ ${#missing[@]} -eq 0 ]]
 }
 
+# yt-dlp (for other sites) answers. it's optional: true when it's turned off
+has_ytdlp() { compose config --services 2>/dev/null | grep -qx ytdlp; }
+
+check_ytdlp() {
+    compose exec -T ytdlp python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4417/health', timeout=10)" > /dev/null 2>&1
+}
+
 check_disk() {
     DISK_USAGE="$(df --output=pcent / | tail -n1 | tr -dc '0-9')"
     (( DISK_USAGE < DISK_LIMIT ))
@@ -190,6 +203,14 @@ fix_api() {
     log "restarting the api"
     compose restart api > /dev/null 2>&1
     wait_for check_api 60
+}
+
+fix_ytdlp() {
+    recently ytdlp 1800 && return 1
+    mark_fix ytdlp
+    log "restarting yt-dlp"
+    compose restart ytdlp > /dev/null 2>&1
+    wait_for check_ytdlp 60
 }
 
 fix_warp() {
@@ -286,6 +307,16 @@ elif can_fix && fix_warp; then
     warp_ok=1
 else
     report warp fail
+fi
+
+if has_ytdlp; then
+    if check_ytdlp; then
+        report ytdlp ok
+    elif can_fix && fix_ytdlp; then
+        report ytdlp ok "" fixed
+    else
+        report ytdlp fail
+    fi
 fi
 
 # youtube can only work when the api and warp do

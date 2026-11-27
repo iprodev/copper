@@ -70,7 +70,8 @@ export default (f, style, isAudioOnly, isAudioMuted) => {
             break;
         case "basic":
             if (isAudioOnly) return title;
-            filename = `${title} (${basicTags.join(", ")})`;
+            // files without a known quality (e.g. from yt-dlp) have no tags
+            filename = basicTags.length ? `${title} (${basicTags.join(", ")})` : title;
             break;
         case "pretty":
             if (isAudioOnly) return `${title} (${infoBase[0]})`;

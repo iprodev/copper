@@ -160,7 +160,7 @@ export function createInternalStream(url, obj = {}, isSubtitles) {
     }
 
     if (isGenericService(obj.service)) {
-        dispatcher = getSafeDispatcher();
+        dispatcher = getSafeDispatcher(obj.service);
     }
 
     const streamID = nanoid();

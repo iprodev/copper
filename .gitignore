@@ -24,3 +24,7 @@ docker-compose.yml
 
 # telegram bot database (local runs)
 bot/data
+
+# python
+__pycache__
+*.pyc
