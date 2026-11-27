@@ -29,6 +29,12 @@ test("filename styles", () => {
     assert.equal(createFilename(f, "nerdy"), "my video - someone (1080p, h264, youtube, abc).mp4");
     assert.equal(createFilename(f, "basic", true), "my video - someone");
     assert.equal(createFilename(f, "classic", false, true), "youtube_abc_1920x1080_h264_mute.mp4");
+
+    // no empty brackets when the quality isn't known
+    const unknown = { service: "tedtalk", id: "66", title: "a talk", extension: "mp4" };
+    assert.equal(createFilename(unknown, "basic"), "a talk.mp4");
+    assert.equal(createFilename(unknown, "pretty"), "a talk (tedtalk).mp4");
+    assert.equal(createFilename(unknown, "classic"), "tedtalk_66.mp4");
 });
 
 test("splitFilenameExtension", () => {

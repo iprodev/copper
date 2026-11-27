@@ -34,6 +34,7 @@ import pornhub from "./services/pornhub.js";
 import xvideos from "./services/xvideos.js";
 import beeg from "./services/beeg.js";
 import generic from "./services/generic.js";
+import ytdlp from "./services/ytdlp.js";
 
 let freebind;
 
@@ -265,7 +266,24 @@ export default async function({ host, patternMatch, params, authType }) {
                 break;
 
             case "generic":
-                r = await generic({ url: patternMatch.url, quality: params.videoQuality });
+                // sites yt-dlp knows go to yt-dlp, the rest (and everything,
+                // without it) to the generic extractor
+                if (env.ytdlpURL) {
+                    r = await ytdlp({
+                        url: patternMatch.url,
+                        quality: params.videoQuality,
+                        isAudioOnly,
+                    });
+                }
+
+                if (!r || r.unsupported) {
+                    if (env.genericExtractor) {
+                        r = await generic({ url: patternMatch.url, quality: params.videoQuality });
+                    } else {
+                        // the link may well be from a site yt-dlp knows
+                        r = { error: r?.unreachable ? "fetch.fail" : "link.invalid" };
+                    }
+                }
                 break;
 
             case "pornhub":

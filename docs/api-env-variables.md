@@ -13,6 +13,7 @@ this document is not final and will expand over time. feel free to improve it!
 | API_REDIS_URL          |         | `redis://localhost:6379`              |
 | DISABLED_SERVICES      |         | `bilibili,youtube`                    |
 | ENABLE_GENERIC_EXTRACTOR |       | `1`                                   |
+| YTDLP_URL              |         | `http://ytdlp:4417/`                  |
 | FORCE_LOCAL_PROCESSING | `never` | `always`                              |
 | API_ENV_FILE           |         | `/.env`                               |
 
@@ -121,6 +122,20 @@ when set to `1`, links from sites that don't have a dedicated service are handle
 **security:** this makes your instance request urls provided by users. every request (including redirects, hls playlists and their segments) is checked, and only `http`/`https` on ports 80 and 443 to public ip addresses is allowed. loopback, private networks, link-local addresses (such as cloud metadata endpoints) and other reserved ranges are refused. if your instance uses a proxy, the proxy resolves hostnames, so make sure it doesn't allow access to internal networks either.
 
 api keys with an `allowedServices` list need `generic` in it to use the generic extractor.
+
+### YTDLP_URL
+the address of a yt-dlp container (the `ytdlp` target of the dockerfile, `ghcr.io/iprodev/fetchr-ytdlp`), with a trailing slash. links from sites without a dedicated service are looked up with yt-dlp first, when it has an extractor for the site (it knows about 1800). links it doesn't know go to the generic extractor (if `ENABLE_GENERIC_EXTRACTOR` is `1`), otherwise they're an invalid link.
+
+yt-dlp only says where the files are: they're downloaded through fetchr's tunnels as untrusted urls, with the same checks as the generic extractor. formats are picked by `videoQuality`, separate video and audio are joined, and albums with videos and pictures become a picker.
+
+the container itself:
+- refuses links and connections (redirects included) to anything but public addresses, and never uses yt-dlp's own generic extractor.
+- runs each lookup in its own process, `YTDLP_WORKERS` (default `2`) at a time, for at most `YTDLP_TIMEOUT` seconds (default `30`).
+- updates yt-dlp by itself every `YTDLP_UPDATE_HOURS` hours (default `24`, `0` turns it off), and restarts to use the new version.
+- `YTDLP_DISABLED_EXTRACTORS`: yt-dlp extractors that are never used, comma-separated (e.g. `bandcamp,imgur`).
+- `YTDLP_PROXY`: a proxy for yt-dlp. some sites only give files to the address that asked for them, so if the api downloads `generic` media through a proxy (`SERVICE_PROXIES`), yt-dlp should use the same one.
+
+it has no authentication, so don't publish its port: only the api should reach it. see `deploy/docker-compose.yml`, where it's also on its own network.
 
 ### FORCE_LOCAL_PROCESSING
 the value is a string: `never` (default), `session`, or `always`:

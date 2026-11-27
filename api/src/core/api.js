@@ -59,7 +59,7 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
                 turnstileSitekey: env.sessionEnabled ? env.turnstileSitekey : undefined,
                 services: [
                     ...env.enabledServices,
-                    ...(env.genericExtractor ? ["generic"] : []),
+                    ...(env.genericExtractor || env.ytdlpURL ? ["generic"] : []),
                 ].map(e => {
                     return friendlyServiceName(e);
                 }),

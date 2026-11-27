@@ -110,6 +110,8 @@ export default function({
                 case "twitter":
                 case "snapchat":
                 case "bsky":
+                // playlists and albums from yt-dlp (see services/ytdlp.js)
+                case "generic":
                     params = { picker: r.picker };
                     break;
 
@@ -193,10 +195,21 @@ export default function({
                     params = { type: "proxy" };
                     break;
 
+                // files from yt-dlp are joined (video and audio) or sent
+                // through a tunnel, see services/ytdlp.js
+                case "generic":
+                    if (Array.isArray(r.urls)) {
+                        params = { type: "merge" };
+                    } else if (r.proxy) {
+                        params = { type: "proxy" };
+                    } else {
+                        responseType = "redirect";
+                    }
+                    break;
+
                 case "facebook":
                 case "instagram":
                 case "threads":
-                case "generic":
                 case "tumblr":
                 case "pinterest":
                 case "streamable":

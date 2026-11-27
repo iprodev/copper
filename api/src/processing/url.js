@@ -208,8 +208,9 @@ export function normalizeURL(url) {
     );
 }
 
+// links from other sites go to yt-dlp and/or the generic extractor.
 // api keys with a list of allowed services need "generic" in it
-const genericAllowed = (enabledServices) => env.genericExtractor && (
+const genericAllowed = (enabledServices) => (env.genericExtractor || env.ytdlpURL) && (
     enabledServices === env.enabledServices
     || enabledServices === env.allServices
     || enabledServices.has("generic")
