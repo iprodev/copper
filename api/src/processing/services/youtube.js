@@ -188,7 +188,27 @@ const getSubtitles = async (info, dispatcher, subtitleLang) => {
     }
 }
 
-export default async function (o) {
+// errors that another client wouldn't change
+const finalErrors = new Set([
+    "content.too_long", "content.video.live", "content.video.private", "content.video.age",
+]);
+
+export default async function youtube(o) {
+    const attempt = {};
+    const result = await getVideo({ ...o, attempt });
+
+    // the session (po token) client is used for qualities above 1080p. when
+    // it fails (youtube stopped serving WEB_EMBEDDED, for one), the video is
+    // fetched like without a session server: with the usual client, in the
+    // best quality it has, instead of an error
+    if (result?.error && attempt.usedSession && !finalErrors.has(result.error)) {
+        return getVideo({ ...o, noSession: true });
+    }
+
+    return result;
+}
+
+async function getVideo(o) {
     const quality = o.quality === "max" ? 9000 : Number(o.quality);
 
     let useHLS = o.youtubeHLS;
@@ -206,7 +226,7 @@ export default async function (o) {
     // iOS client doesn't have adaptive formats of resolution >1080p,
     // so we use the WEB_EMBEDDED client instead for those cases
     let useSession =
-        env.ytSessionServer && (
+        !o.noSession && env.ytSessionServer && (
             (
                 !useHLS
                 && innertubeClient === "IOS"
@@ -226,6 +246,8 @@ export default async function (o) {
     if (useSession) {
         innertubeClient = env.ytSessionInnertubeClient || "WEB_EMBEDDED";
     }
+
+    if (o.attempt) o.attempt.usedSession = !!useSession;
 
     let yt;
     try {
