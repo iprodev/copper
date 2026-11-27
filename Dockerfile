@@ -39,6 +39,9 @@ RUN useradd --uid 1000 --create-home fetchr \
     && /opt/venv/bin/pip install --no-cache-dir --disable-pip-version-check "yt-dlp[default]" \
     && chown -R fetchr:fetchr /opt/venv
 
+# youtube's signatures need a javascript runtime (yt-dlp's default, deno)
+COPY --from=denoland/deno:bin-2.5.6 /deno /usr/local/bin/deno
+
 WORKDIR /srv
 COPY --chown=fetchr:fetchr ytdlp/app /srv/app
 

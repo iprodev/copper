@@ -64,12 +64,24 @@ class CheckURL(unittest.TestCase):
 
 class Proxies(unittest.TestCase):
     def test_proxy_addresses(self):
-        resolve = resolver({"warp": ["172.18.0.3"], "127.0.0.1": ["127.0.0.1"]})
+        resolve = resolver({"warp": ["172.18.0.3"], "127.0.0.1": ["127.0.0.1"], "other": ["10.0.0.9"]})
         self.assertEqual(
             guard.proxy_addresses({"YTDLP_PROXY": "socks5://warp:1080", "https_proxy": "http://127.0.0.1:3128"}, resolve),
             {("172.18.0.3", 1080), ("127.0.0.1", 3128)},
         )
+        # the proxies of fetchr's services too
+        self.assertEqual(
+            guard.proxy_addresses({"SERVICE_PROXIES": "youtube=socks5://warp:1080, tiktok=direct,instagram=http://other:8080"}, resolve),
+            {("172.18.0.3", 1080), ("10.0.0.9", 8080)},
+        )
         self.assertEqual(guard.proxy_addresses({}, resolve), set())
+
+    def test_service_proxies(self):
+        self.assertEqual(
+            guard.service_proxies({"SERVICE_PROXIES": "youtube=socks5://warp:1080,TikTok=direct; bad"}),
+            {"youtube": "socks5://warp:1080", "tiktok": "direct"},
+        )
+        self.assertEqual(guard.service_proxies({}), {})
 
 
 class _Handler(BaseHTTPRequestHandler):

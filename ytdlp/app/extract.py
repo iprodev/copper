@@ -7,6 +7,7 @@ what runs in each worker process (see server.py).
 
 import os
 import re
+import shutil
 
 import yt_dlp
 from yt_dlp.extractor import gen_extractor_classes
@@ -73,7 +74,22 @@ class _QuietLogger:
         pass
 
 
-def options():
+def proxy_for(service):
+    """the proxy of the fetchr service the link is from (SERVICE_PROXIES, like
+    the api), so its files work for the address the api downloads them from"""
+    proxy = guard.service_proxies().get(str(service or "generic").lower())
+    if proxy and proxy != "direct":
+        return proxy
+    return os.environ.get("YTDLP_PROXY") or None
+
+
+# youtube needs a javascript runtime for its signatures (yt-dlp's "ejs").
+# the image has deno, yt-dlp's default
+JS_RUNTIMES = {name: {} for name in ("deno", "node") if shutil.which(name)}
+
+
+def options(service=None):
+    proxy = proxy_for(service)
     return {
         "quiet": True,
         "no_warnings": True,
@@ -92,7 +108,8 @@ def options():
         "cachedir": False,
         "allowed_extractors": ["default", "-generic", *(f"-{name}" for name in DISABLED)],
         # e.g. socks5://warp:1080. without it, the usual proxy variables are used
-        **({"proxy": os.environ["YTDLP_PROXY"]} if os.environ.get("YTDLP_PROXY") else {}),
+        **({"proxy": proxy} if proxy else {}),
+        **({"js_runtimes": JS_RUNTIMES} if JS_RUNTIMES else {}),
     }
 
 
@@ -152,14 +169,15 @@ def error_code(error):
     return "fetch.fail"
 
 
-def extract(url):
+def extract(url, service=None):
     if guard.check_url(url):
         return {"ok": False, "error": "unsafe"}
     if not find_extractor(url):
         return {"ok": False, "error": "unsupported"}
 
+    guard.allow_proxies()
     try:
-        with yt_dlp.YoutubeDL(options()) as ydl:
+        with yt_dlp.YoutubeDL(options(service)) as ydl:
             info = ydl.extract_info(url, download=False)
     except DownloadError as e:
         return {"ok": False, "error": error_code(e)}
@@ -174,10 +192,10 @@ def extract(url):
     return {"ok": True, "info": trim(info)}
 
 
-def work(url, conn):
+def work(url, service, conn):
     """runs in a worker process: sends the result back through the pipe"""
     try:
-        result = extract(url)
+        result = extract(url, service)
     except BaseException:
         result = {"ok": False, "error": "fetch.fail"}
 

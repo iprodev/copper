@@ -85,6 +85,23 @@ class Errors(unittest.TestCase):
         self.assertEqual(extract.error_code(download_error(GeoRestrictedError("blocked"))), "content.region")
 
 
+class ProxyFor(unittest.TestCase):
+    def test_the_services_proxy(self):
+        env = {"SERVICE_PROXIES": "youtube=socks5://warp:1080,tiktok=direct"}
+        with mock.patch.dict(extract.os.environ, env, clear=True):
+            self.assertEqual(extract.proxy_for("youtube"), "socks5://warp:1080")
+            self.assertIsNone(extract.proxy_for("tiktok"))
+            self.assertIsNone(extract.proxy_for("generic"))
+            self.assertEqual(extract.options("youtube")["proxy"], "socks5://warp:1080")
+            self.assertNotIn("proxy", extract.options("generic"))
+
+        with mock.patch.dict(extract.os.environ, {**env, "YTDLP_PROXY": "socks5://other:1080"}, clear=True):
+            # a service's own proxy comes first, YTDLP_PROXY is for the rest
+            self.assertEqual(extract.proxy_for("youtube"), "socks5://warp:1080")
+            self.assertEqual(extract.proxy_for("tiktok"), "socks5://other:1080")
+            self.assertEqual(extract.proxy_for("generic"), "socks5://other:1080")
+
+
 class Extract(unittest.TestCase):
     def test_links_are_checked_first(self):
         self.assertEqual(extract.extract("https://127.0.0.1/a"), {"ok": False, "error": "unsafe"})
@@ -105,12 +122,19 @@ class Extract(unittest.TestCase):
                 assert download is False
                 assert self.options["simulate"] and self.options["noplaylist"]
                 assert "-generic" in self.options["allowed_extractors"]
+                seen.append(self.options.get("proxy"))
                 if "private" in url:
                     raise download_error(ExtractorError("This video is private"))
                 return {"id": "ae5Ag7B", "title": "t", "formats": [{"url": "https://cdn/v.mp4", "ext": "mp4"}]}
 
+        seen = []
         with mock.patch.object(extract.guard, "check_url", return_value=None), \
-                mock.patch.object(extract.yt_dlp, "YoutubeDL", FakeYDL):
+                mock.patch.object(extract.yt_dlp, "YoutubeDL", FakeYDL), \
+                mock.patch.dict(extract.os.environ, {"SERVICE_PROXIES": "youtube=socks5://warp:1080"}):
+            # a youtube link, when fetchr's youtube service failed: through its proxy
+            self.assertTrue(extract.extract("https://www.youtube.com/watch?v=jNQXAC9IVRw", "youtube")["ok"])
+            self.assertEqual(seen, ["socks5://warp:1080"])
+
             result = extract.extract("https://9gag.com/gag/ae5Ag7B")
             self.assertTrue(result["ok"])
             self.assertEqual(result["info"]["formats"], [{"url": "https://cdn/v.mp4", "ext": "mp4"}])

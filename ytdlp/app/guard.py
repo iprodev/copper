@@ -10,6 +10,7 @@ and dns answers that change between a check and the connection.
 import errno
 import ipaddress
 import os
+import re
 import socket
 from urllib.parse import urlsplit
 
@@ -82,24 +83,37 @@ def check_url(url, resolve=socket.getaddrinfo):
 PROXY_VARIABLES = ("YTDLP_PROXY", "ALL_PROXY", "HTTPS_PROXY", "HTTP_PROXY")
 
 
+def service_proxies(environ=os.environ):
+    """SERVICE_PROXIES (the same as the api's): {"youtube": "socks5://warp:1080"}"""
+    proxies = {}
+    for entry in re.split(r"[,;\s]+", environ.get("SERVICE_PROXIES", "")):
+        service, _, proxy = entry.partition("=")
+        if service.strip() and proxy.strip():
+            proxies[service.strip().lower()] = proxy.strip()
+    return proxies
+
+
 def proxy_addresses(environ=os.environ, resolve=socket.getaddrinfo):
-    """(address, port) of the proxies yt-dlp is set up to use.
+    """(address, port) of the proxies yt-dlp may use.
 
     behind a proxy, the proxy connects to the sites, so connections to it
     are allowed (and only the link itself is checked, see check_url).
     """
+    values = [environ.get(name) for name in PROXY_VARIABLES]
+    values += [environ.get(name.lower()) for name in PROXY_VARIABLES]
+    values += [p for p in service_proxies(environ).values() if p != "direct"]
+
     allowed = set()
-    for name in PROXY_VARIABLES:
-        for value in (environ.get(name), environ.get(name.lower())):
-            if not value:
-                continue
-            try:
-                parts = urlsplit(value if "://" in value else f"http://{value}")
-                port = parts.port or {"https": 443}.get(parts.scheme, 1080 if parts.scheme.startswith("socks") else 80)
-                for info in resolve(parts.hostname, port):
-                    allowed.add((info[4][0], port))
-            except (OSError, ValueError, TypeError, UnicodeError):
-                continue
+    for value in values:
+        if not value:
+            continue
+        try:
+            parts = urlsplit(value if "://" in value else f"http://{value}")
+            port = parts.port or {"https": 443}.get(parts.scheme, 1080 if parts.scheme.startswith("socks") else 80)
+            for info in resolve(parts.hostname, port):
+                allowed.add((info[4][0], port))
+        except (OSError, ValueError, TypeError, UnicodeError):
+            continue
     return allowed
 
 
@@ -120,13 +134,19 @@ def _check(sock, address):
 _installed = False
 
 
+def allow_proxies():
+    """(re)reads the proxies' addresses, they can change when a container restarts"""
+    global _proxies
+    _proxies = proxy_addresses()
+
+
 def install():
     """checks the address of every connection python makes from now on"""
-    global _installed, _proxies
+    global _installed
     if _installed:
         return
 
-    _proxies = proxy_addresses()
+    allow_proxies()
 
     real_connect = socket.socket.connect
     real_connect_ex = socket.socket.connect_ex

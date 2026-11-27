@@ -1,10 +1,12 @@
 """a small http server that gives the api yt-dlp's info about a link.
 
-    POST /extract  {"url": "https://..."}
+    POST /extract  {"url": "https://...", "service": "youtube"}
         -> {"ok": true, "info": {...}}
         -> {"ok": false, "error": "unsupported" | "unsafe" | "busy" | "timeout" | <fetchr error code>}
     GET /health    -> {"ok": true, "version": "<yt-dlp version>"}
 
+the service is the fetchr service of the link ("generic" for other sites):
+its proxy from SERVICE_PROXIES is used, like the api does.
 it has no authentication: no port is published, only the api reaches it.
 each link is looked up in its own process, which is killed when it takes
 too long, and only a few run at once.
@@ -13,6 +15,7 @@ too long, and only a few run at once.
 import json
 import multiprocessing
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -49,13 +52,13 @@ def log(message):
     print(f"[ytdlp] {message}", file=sys.stderr, flush=True)
 
 
-def run(url):
+def run(url, service):
     if not slots.acquire(timeout=QUEUE_WAIT):
         return {"ok": False, "error": "busy"}
 
     try:
         receiver, sender = context.Pipe(duplex=False)
-        process = context.Process(target=extract.work, args=(url, sender), daemon=True)
+        process = context.Process(target=extract.work, args=(url, service, sender), daemon=True)
         process.start()
         sender.close()
 
@@ -77,7 +80,7 @@ def run(url):
         slots.release()
 
 
-def lookup(url):
+def lookup(url, service="generic"):
     """checks the link before a worker is started for it"""
     if extract.guard.check_url(url):
         return {"ok": False, "error": "unsafe"}
@@ -87,7 +90,7 @@ def lookup(url):
         return {"ok": False, "error": "unsupported"}
 
     started = time.monotonic()
-    result = run(url)
+    result = run(url, service)
     outcome = "ok" if result.get("ok") else result.get("error")
     # links aren't logged, only the site and the outcome
     log(f"{ie.ie_key()}: {outcome} in {time.monotonic() - started:.1f}s")
@@ -126,13 +129,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(400, {"ok": False, "error": "bad request"})
 
         try:
-            url = json.loads(self.rfile.read(length)).get("url")
+            body = json.loads(self.rfile.read(length))
+            url, service = body.get("url"), body.get("service", "generic")
         except (ValueError, AttributeError):
-            url = None
-        if not isinstance(url, str):
+            url = service = None
+        if not isinstance(url, str) or not isinstance(service, str) \
+                or not re.fullmatch(r"[a-z0-9]{1,32}", service):
             return self.send_json(400, {"ok": False, "error": "bad request"})
 
-        self.send_json(200, lookup(url))
+        self.send_json(200, lookup(url, service))
 
 
 def installed_version():
